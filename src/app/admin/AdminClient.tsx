@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import FileUploadZone, { FileListDisplay } from '@/components/FileUploadZone';
+import FilePreviewModal from '@/components/FilePreviewModal';
 
 const statusLabels: Record<string, string> = {
   pending_payment: '待付款',
@@ -225,6 +226,7 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
   const [deliveryFiles, setDeliveryFiles] = useState<{ name: string; id: string }[]>([]);
   const [userFiles, setUserFiles] = useState<{ name: string; id: string }[]>([]);
   const [payAmount, setPayAmount] = useState('');
+  const [previewFile, setPreviewFile] = useState<{ id: string; name: string } | null>(null);
 
   const remaining = Math.max(0, order.price - (order.paid_amount || 0));
 
@@ -355,8 +357,12 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
             }}>
               <span>📎</span>
               <span>{f.name}</span>
+              <button onClick={() => setPreviewFile({ id: f.id, name: f.name })}
+                style={{ fontSize: '0.7rem', color: 'var(--gray-500)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                预览
+              </button>
               <Link href={`/api/download/${f.id}`} style={{
-                marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--gray-500)',
+                marginLeft: '1rem', fontSize: '0.7rem', color: 'var(--gray-500)',
                 textDecoration: 'underline',
               }}>
                 下载
@@ -453,6 +459,10 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
               }}>
                 <span>📦</span>
                 <span style={{ flex: 1 }}>{f.name}</span>
+                <button onClick={() => setPreviewFile({ id: f.id, name: f.name })}
+                  style={{ fontSize: '0.7rem', color: 'var(--gray-500)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginRight: '0.5rem' }}>
+                  预览
+                </button>
                 <Link href={`/api/download/${f.id}`} style={{
                   fontSize: '0.7rem', color: 'var(--gray-500)',
                 }}>
@@ -481,6 +491,13 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
           {message}
         </p>
       )}
+
+      <FilePreviewModal
+        fileId={previewFile?.id || ''}
+        fileName={previewFile?.name || ''}
+        visible={!!previewFile}
+        onClose={() => setPreviewFile(null)}
+      />
     </div>
   );
 }
