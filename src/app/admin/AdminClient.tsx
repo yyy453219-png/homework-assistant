@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import FileUploadZone, { FileListDisplay } from '@/components/FileUploadZone';
 
 const statusLabels: Record<string, string> = {
   pending_payment: '待付款',
@@ -28,6 +29,7 @@ interface Order {
   current_status: string;
   is_urgent: number;
   price: number;
+  paid_amount: number;
   status: string;
   admin_note: string;
   created_at: string;
@@ -41,6 +43,14 @@ interface User {
   is_admin: number;
 }
 
+interface FileInfo {
+  id: string;
+  original_name: string;
+  file_size: number;
+  uploaded_at: string;
+  is_delivery: number;
+}
+
 interface Props {
   orders: Order[];
   users: any[];
@@ -52,6 +62,7 @@ export default function AdminClient({ orders, users, user }: Props) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [tab, setTab] = useState<'orders' | 'users'>('orders');
+  const [orderFiles, setOrderFiles] = useState<FileInfo[]>([]);
 
   const filteredOrders = statusFilter === 'all'
     ? orders
@@ -59,7 +70,6 @@ export default function AdminClient({ orders, users, user }: Props) {
 
   return (
     <div className="admin-layout">
-      {/* Sidebar */}
       <div style={{
         background: 'var(--gray-50)',
         borderRight: '1px solid var(--gray-200)',
@@ -75,27 +85,24 @@ export default function AdminClient({ orders, users, user }: Props) {
           <button onClick={() => setTab('orders')} style={{
             textAlign: 'left', padding: '0.5rem 0', background: 'none', border: 'none',
             fontSize: '0.875rem', cursor: 'pointer', color: tab === 'orders' ? 'var(--black)' : 'var(--gray-500)',
-            fontWeight: tab === 'orders' ? '600' : '400',
+            fontWeight: tab === 'orders' ? '600' : '400', fontFamily: 'inherit',
           }}>
             订单管理
           </button>
           <button onClick={() => setTab('users')} style={{
             textAlign: 'left', padding: '0.5rem 0', background: 'none', border: 'none',
             fontSize: '0.875rem', cursor: 'pointer', color: tab === 'users' ? 'var(--black)' : 'var(--gray-500)',
-            fontWeight: tab === 'users' ? '600' : '400',
+            fontWeight: tab === 'users' ? '600' : '400', fontFamily: 'inherit',
           }}>
             用户管理
           </button>
         </nav>
       </div>
 
-      {/* Main */}
       <div style={{ padding: '2rem 1.5rem' }}>
         {tab === 'orders' && (
           <>
             <h2 style={{ marginBottom: '1.5rem' }}>订单管理</h2>
-
-            {/* Status Filter */}
             <div className="status-flow" style={{ marginBottom: '1.5rem' }}>
               {['all', 'pending_payment', 'paid', 'processing', 'need_info', 'delivered', 'completed', 'refunded'].map(s => (
                 <button key={s} onClick={() => setStatusFilter(s)} style={{
@@ -113,7 +120,6 @@ export default function AdminClient({ orders, users, user }: Props) {
               ))}
             </div>
 
-            {/* Orders table */}
             {selectedOrder ? (
               <OrderDetailPanel
                 order={selectedOrder}
@@ -129,6 +135,7 @@ export default function AdminClient({ orders, users, user }: Props) {
                       <th>课程</th>
                       <th>服务</th>
                       <th>金额</th>
+                      <th>已付</th>
                       <th>状态</th>
                       <th>时间</th>
                       <th></th>
@@ -141,6 +148,9 @@ export default function AdminClient({ orders, users, user }: Props) {
                         <td style={{ fontSize: '0.85rem' }}>{o.course_name}</td>
                         <td style={{ fontSize: '0.8rem', color: 'var(--gray-500)' }}>{o.service_type}</td>
                         <td>¥{o.price}</td>
+                        <td style={{ fontSize: '0.8rem', color: o.paid_amount > 0 ? 'var(--accent)' : 'var(--gray-400)' }}>
+                          {o.paid_amount > 0 ? `¥${o.paid_amount}` : '-'}
+                        </td>
                         <td>
                           <span className={`badge ${o.status === 'delivered' || o.status === 'completed' ? 'badge-success' : o.status === 'pending_payment' ? 'badge-warning' : ''}`}
                             style={{ fontSize: '0.65rem' }}>
@@ -206,12 +216,25 @@ export default function AdminClient({ orders, users, user }: Props) {
   );
 }
 
-// Order detail panel in admin (inline)
+// Order detail panel in admin
 function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: () => void; onUpdate: () => void }) {
   const [newStatus, setNewStatus] = useState(order.status);
   const [note, setNote] = useState(order.admin_note || '');
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
+  const [deliveryFiles, setDeliveryFiles] = useState<{ name: string; id: string }[]>([]);
+  const [userFiles, setUserFiles] = useState<{ name: string; id: string }[]>([]);
+
+  // Load files on mount
+  useState(() => {
+    fetch(`/api/orders/${order.id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.deliveries) setDeliveryFiles(data.deliveries.map((f: any) => ({ name: f.original_name, id: f.id })));
+        if (data.files) setUserFiles(data.files.map((f: any) => ({ name: f.original_name, id: f.id })));
+      })
+      .catch(() => {});
+  });
 
   async function handleStatusChange(status: string) {
     const res = await fetch('/api/admin/orders', {
@@ -221,10 +244,10 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
     });
     if (res.ok) {
       setNewStatus(status);
-      setMessage('状态已更新');
+      setMessage('✅ 状态已更新');
       onUpdate();
     } else {
-      setMessage('更新失败');
+      setMessage('❌ 更新失败');
     }
   }
 
@@ -235,29 +258,21 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
       body: JSON.stringify({ orderId: order.id, admin_note: note }),
     });
     if (res.ok) {
-      setMessage('备注已保存');
+      setMessage('✅ 备注已保存');
       onUpdate();
     } else {
-      setMessage('保存失败');
+      setMessage('❌ 保存失败');
     }
   }
 
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) {
-      setMessage('请先选择文件');
-      return;
-    }
-
-    if (file.size > 50 * 1024 * 1024) {
-      setMessage('文件超过 50MB 限制');
-      return;
-    }
-
+  async function handleFilesSelected(files: File[]) {
     setUploading(true);
     setMessage('上传中...');
+
     const formData = new FormData();
-    formData.append('file', file);
+    for (const file of files) {
+      formData.append('files[]', file);
+    }
     formData.append('order_id', order.id);
     formData.append('is_delivery', '1');
 
@@ -265,17 +280,16 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await res.json();
       if (res.ok) {
-        setMessage(`✅ 文件上传成功：${file.name}`);
+        setMessage(`✅ 成功上传 ${data.count} 个文件`);
+        setDeliveryFiles(prev => [...prev, ...data.files]);
         onUpdate();
       } else {
         setMessage(`❌ 上传失败：${data.error || res.statusText}`);
       }
-    } catch (err) {
-      setMessage(`❌ 网络错误：无法连接到服务器`);
+    } catch {
+      setMessage('❌ 网络错误');
     }
     setUploading(false);
-    // Reset file input
-    e.target.value = '';
   }
 
   return (
@@ -301,10 +315,14 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
       {/* Order Info */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.85rem' }}>
-          <div><span style={{ color: 'var(--gray-400)' }}>订单ID:</span> {order.id.slice(0, 12)}...</div>
           <div><span style={{ color: 'var(--gray-400)' }}>价格:</span> ¥{order.price}</div>
+          <div><span style={{ color: 'var(--gray-400)' }}>已付金额:</span> ¥{order.paid_amount || 0}</div>
           <div><span style={{ color: 'var(--gray-400)' }}>提交时间:</span> {order.created_at}</div>
           <div><span style={{ color: 'var(--gray-400)' }}>加急:</span> {order.is_urgent ? '是' : '否'}</div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <span style={{ color: 'var(--gray-400)' }}>订单ID:</span>{' '}
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>{order.id}</span>
+          </div>
         </div>
       </div>
 
@@ -320,9 +338,52 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
         )}
       </div>
 
+      {/* User Uploaded Files */}
+      {userFiles.length > 0 && (
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.75rem' }}>
+            用户上传的附件（{userFiles.length} 个）
+          </p>
+          {userFiles.map((f, i) => (
+            <div key={f.id} style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              padding: '0.4rem 0', borderBottom: '1px solid var(--gray-100)',
+              fontSize: '0.85rem',
+            }}>
+              <span>📎</span>
+              <span>{f.name}</span>
+              <Link href={`/api/download/${f.id}`} style={{
+                marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--gray-500)',
+                textDecoration: 'underline',
+              }}>
+                下载
+              </Link>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Payment Validation */}
+      {newStatus === 'pending_payment' && (
+        <div className="card" style={{ marginBottom: '1.5rem', borderColor: 'var(--accent)' }}>
+          <p style={{ fontSize: '0.7rem', color: 'var(--accent)', marginBottom: '0.5rem', fontWeight: '600' }}>
+            付款确认
+          </p>
+          <p style={{ fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+            应付金额：<strong>¥{order.price}</strong>
+          </p>
+          <button className="btn btn-accent btn-sm" onClick={() => handleStatusChange('paid')}>
+            确认已收款（标记为已付款）
+          </button>
+          <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginTop: '0.5rem' }}>
+            提示：确认付款前请核实收款金额是否正确
+          </p>
+        </div>
+      )}
+
       {/* Status Control */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.75rem' }}>订单状态</p>
+        <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.75rem' }}>订单状态流转</p>
         <div className="status-flow">
           {statusFlow.map(s => (
             <button key={s} onClick={() => handleStatusChange(s)}
@@ -340,11 +401,39 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
         </div>
       </div>
 
-      {/* Upload Delivery */}
+      {/* Upload Delivery Files - with drag & drop */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.75rem' }}>上传交付文档</p>
-        <input type="file" onChange={handleFileUpload} disabled={uploading}
-          style={{ fontSize: '0.8rem' }} />
+        <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.75rem' }}>
+          上传交付文档（拖拽或点击选择，支持多文件和文件夹）
+        </p>
+        <FileUploadZone
+          onFilesSelected={handleFilesSelected}
+          label="拖拽交付文档到此处"
+        />
+
+        {/* Admin uploaded delivery files */}
+        {deliveryFiles.length > 0 && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.5rem' }}>
+              已上传的交付文档（{deliveryFiles.length} 个）：
+            </p>
+            {deliveryFiles.map((f, i) => (
+              <div key={f.id} style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                padding: '0.35rem 0.5rem', borderBottom: '1px solid var(--gray-100)',
+                fontSize: '0.8rem',
+              }}>
+                <span>📦</span>
+                <span style={{ flex: 1 }}>{f.name}</span>
+                <Link href={`/api/download/${f.id}`} style={{
+                  fontSize: '0.7rem', color: 'var(--gray-500)',
+                }}>
+                  下载
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
         {uploading && <p style={{ fontSize: '0.75rem', color: 'var(--gray-500)', marginTop: '0.5rem' }}>上传中...</p>}
       </div>
 
@@ -356,7 +445,14 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
         <button className="btn btn-outline btn-sm" onClick={handleSaveNote}>保存备注</button>
       </div>
 
-      {message && <p style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginTop: '0.5rem' }}>{message}</p>}
+      {message && (
+        <p style={{
+          fontSize: '0.8rem', marginTop: '0.5rem',
+          color: message.startsWith('✅') ? '#2a9d8f' : message.startsWith('❌') ? 'var(--accent)' : 'var(--gray-500)',
+        }}>
+          {message}
+        </p>
+      )}
     </div>
   );
 }

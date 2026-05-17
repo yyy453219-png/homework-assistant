@@ -56,10 +56,30 @@ interface Props {
   user: User;
 }
 
+function FileIcon(name: string) {
+  const ext = name.split('.').pop()?.toLowerCase();
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext || '')) return '🖼️';
+  if (['doc', 'docx'].includes(ext || '')) return '📝';
+  if (['pdf'].includes(ext || '')) return '📄';
+  if (['xls', 'xlsx', 'csv'].includes(ext || '')) return '📊';
+  if (['ppt', 'pptx'].includes(ext || '')) return '📽️';
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext || '')) return '📦';
+  if (['py', 'js', 'ts', 'java', 'c', 'cpp', 'go', 'rs'].includes(ext || '')) return '💻';
+  return '📎';
+}
+
+function formatSize(bytes?: number) {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+}
+
 export default function OrderDetailClient({ order, files, deliveries, payments, user }: Props) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState('');
+  const [paymentNotified, setPaymentNotified] = useState(false);
 
   async function handlePaymentConfirm() {
     setConfirming(true);
@@ -69,11 +89,13 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId: order.id }),
       });
+      const data = await res.json();
       if (res.ok) {
-        setMessage('付款确认成功');
+        setPaymentNotified(true);
+        setMessage(data.message || '已通知管理员，请等待确认');
         router.refresh();
       } else {
-        setMessage('确认失败，请重试');
+        setMessage(data.error || '确认失败，请重试');
       }
     } catch {
       setMessage('网络错误');
@@ -98,7 +120,7 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
       </div>
 
       {/* Payment Section */}
-      {order.status === 'pending_payment' && (
+      {order.status === 'pending_payment' && !paymentNotified && (
         <div className="geo-block" style={{ marginBottom: '2rem' }}>
           <span className="section-number" style={{ marginBottom: '0.5rem' }}>付款</span>
           <h2 style={{ marginBottom: '0.5rem' }}>
@@ -125,10 +147,24 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
               }}
             />
           </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--accent)', marginBottom: '0.75rem' }}>
+            应付金额：<strong>¥{order.price}</strong> · 请支付正确金额，管理员会核实确认
+          </p>
           <button className="btn btn-primary btn-sm" onClick={handlePaymentConfirm} disabled={confirming}>
             {confirming ? '确认中...' : '我已付款'}
           </button>
           {message && <p style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginTop: '0.5rem' }}>{message}</p>}
+        </div>
+      )}
+
+      {paymentNotified && (
+        <div className="card" style={{ marginBottom: '2rem', borderColor: '#2a9d8f' }}>
+          <p style={{ fontSize: '0.85rem', color: '#2a9d8f', marginBottom: '0.25rem' }}>
+            ✅ 已通知管理员你已付款
+          </p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>
+            管理员核实金额后会更新订单状态，请耐心等待
+          </p>
         </div>
       )}
 
@@ -160,6 +196,11 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
             <p>{order.is_urgent ? '是' : '否'}</p>
           </div>
         </div>
+        {order.paid_amount > 0 && (
+          <div style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: 'var(--gray-500)' }}>
+            已付金额：¥{order.paid_amount}
+          </div>
+        )}
       </div>
 
       {/* Description */}
@@ -168,13 +209,25 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
         <p style={{ fontSize: '0.875rem', whiteSpace: 'pre-wrap' }}>{order.description}</p>
       </div>
 
-      {/* User Files */}
+      {/* User Uploaded Files - with visual display */}
       {files.length > 0 && (
         <div className="card" style={{ marginBottom: '1.5rem' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.75rem' }}>上传的附件</p>
+          <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.75rem' }}>
+            你上传的附件（{files.length} 个文件）
+          </p>
           {files.map(f => (
-            <div key={f.id} className="file-item">
-              <span className="file-name">{f.original_name}</span>
+            <div key={f.id} style={{
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+              padding: '0.5rem 0.75rem', borderBottom: '1px solid var(--gray-100)',
+              fontSize: '0.85rem',
+            }}>
+              <span style={{ fontSize: '1.1rem' }}>{FileIcon(f.original_name)}</span>
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {f.original_name}
+              </span>
+              <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)', whiteSpace: 'nowrap' }}>
+                {formatSize(f.file_size)}
+              </span>
               <Link href={`/api/download/${f.id}`} className="btn btn-outline btn-sm" style={{ fontSize: '0.7rem', padding: '0.25rem 0.75rem' }}>
                 下载
               </Link>
@@ -183,13 +236,28 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
         </div>
       )}
 
-      {/* Deliveries */}
+      {/* Deliveries - with admin upload display */}
       {deliveries.length > 0 && (
         <div className="geo-block" style={{ marginBottom: '1.5rem', borderColor: 'var(--accent)' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--accent)', marginBottom: '0.75rem', fontWeight: '600' }}>交付文档</p>
+          <p style={{ fontSize: '0.7rem', color: 'var(--accent)', marginBottom: '0.75rem', fontWeight: '600' }}>
+            交付文档（{deliveries.length} 个文件）
+          </p>
           {deliveries.map(d => (
-            <div key={d.id} className="file-item" style={{ border: '1px solid var(--gray-200)', marginBottom: '0.5rem', padding: '0.75rem 1rem' }}>
-              <span className="file-name">{d.original_name}</span>
+            <div key={d.id} style={{
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+              padding: '0.5rem 0.75rem', borderBottom: '1px solid var(--gray-100)',
+              fontSize: '0.85rem',
+            }}>
+              <span style={{ fontSize: '1.1rem' }}>{FileIcon(d.original_name)}</span>
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {d.original_name}
+              </span>
+              <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)', whiteSpace: 'nowrap' }}>
+                {formatSize(d.file_size)}
+              </span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--gray-400)' }}>
+                {d.uploaded_at}
+              </span>
               <Link href={`/api/download/${d.id}`} className="btn btn-accent btn-sm" style={{ fontSize: '0.7rem', padding: '0.25rem 0.75rem' }}>
                 下载
               </Link>
@@ -209,7 +277,7 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
       {/* Customer Service */}
       <div style={{ textAlign: 'center', padding: '2rem 0' }}>
         <p style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginBottom: '0.75rem' }}>需要帮助？联系客服</p>
-        <p style={{ fontSize: '0.75rem', color: 'var(--gray-400)' }}>微信：你真实的微信号</p>
+        <p style={{ fontSize: '0.75rem', color: 'var(--gray-400)' }}>微信：请添加客服微信号</p>
       </div>
     </div>
   );

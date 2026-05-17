@@ -20,8 +20,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: '无权访问' }, { status: 403 });
   }
 
-  const files = db.prepare('SELECT * FROM files WHERE order_id = ? ORDER BY uploaded_at ASC').all(id);
+  const files = db.prepare('SELECT * FROM files WHERE order_id = ? AND is_delivery = 0 ORDER BY uploaded_at ASC').all(id);
+  const deliveries = db.prepare('SELECT * FROM files WHERE order_id = ? AND is_delivery = 1 ORDER BY uploaded_at ASC').all(id);
   const payments = db.prepare('SELECT * FROM payment_records WHERE order_id = ? ORDER BY created_at DESC').all(id);
 
-  return NextResponse.json({ order, files, payments });
+  return NextResponse.json({ order, files, deliveries, payments });
 }

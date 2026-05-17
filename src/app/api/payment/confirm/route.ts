@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: '请先登录' }, { status: 401 });
+  }
+
   const { orderId } = await request.json();
 
   if (!orderId) {
@@ -16,15 +22,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '订单不存在' }, { status: 404 });
   }
 
-  // Record payment
+  if (order.user_id !== user.id) {
+    return NextResponse.json({ error: '无权操作' }, { status: 403 });
+  }
+
+  // Record payment intent
   const paymentId = crypto.randomUUID();
   db.prepare(`
-    INSERT INTO payment_records (id, order_id, user_id, amount, method, status, confirmed_at)
-    VALUES (?, ?, ?, ?, 'manual', 'confirmed', datetime('now','localtime'))
-  `).run(paymentId, orderId, order.user_id, order.price);
+    INSERT INTO payment_records (id, order_id, user_id, amount, method, status, remark)
+    VALUES (?, ?, ?, ?, 'manual', 'pending_payment', '用户已付款，等待管理员确认')
+  `).run(paymentId, orderId, user.id, order.price);
 
-  // Update order status
-  db.prepare("UPDATE orders SET status = 'paid', paid_amount = ?, paid_at = datetime('now','localtime') WHERE id = ?").run(order.price, orderId);
+  // Don't auto-mark as paid - admin must verify
+  // Just record the payment intent and leave order as pending_payment
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+    message: '已通知管理员，请等待确认',
+  });
 }

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import FileUploadZone, { FileListDisplay } from '@/components/FileUploadZone';
 
 const SERVICE_TYPES = [
   '作业思路解析',
@@ -74,14 +75,14 @@ export default function SubmitPage() {
         return;
       }
 
-      // Upload files if any
+      // Upload files if any (batch upload)
       if (files.length > 0) {
+        const formData = new FormData();
         for (const file of files) {
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('order_id', data.orderId);
-          await fetch('/api/upload', { method: 'POST', body: formData });
+          formData.append('files[]', file);
         }
+        formData.append('order_id', data.orderId);
+        await fetch('/api/upload', { method: 'POST', body: formData });
       }
 
       setCreatedOrderId(data.orderId);
@@ -91,11 +92,13 @@ export default function SubmitPage() {
     setSubmitting(false);
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (e.target.files) {
-      setFiles(Array.from(e.target.files));
-    }
-  }
+  const handleFilesSelected = (newFiles: File[]) => {
+    setFiles(prev => [...prev, ...newFiles]);
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
   if (createdOrderId) {
     return (
@@ -132,13 +135,11 @@ export default function SubmitPage() {
         <h1 style={{ marginBottom: '2.5rem' }}>提交作业需求</h1>
 
         <form onSubmit={handleSubmit}>
-          {/* Course Name */}
           <div className="form-group">
             <label className="label">课程名称</label>
             <input className="input" type="text" value={courseName} onChange={e => setCourseName(e.target.value)} placeholder="例如：高等数学" required />
           </div>
 
-          {/* Homework Type */}
           <div className="form-group">
             <label className="label">作业类型</label>
             <select className="select-input" value={homeworkType} onChange={e => setHomeworkType(e.target.value)} required>
@@ -147,7 +148,6 @@ export default function SubmitPage() {
             </select>
           </div>
 
-          {/* Service Type */}
           <div className="form-group">
             <label className="label">服务类型</label>
             <select className="select-input" value={serviceType} onChange={e => setServiceType(e.target.value)} required>
@@ -156,25 +156,21 @@ export default function SubmitPage() {
             </select>
           </div>
 
-          {/* Description */}
           <div className="form-group">
             <label className="label">作业要求描述</label>
             <textarea className="input" value={description} onChange={e => setDescription(e.target.value)} placeholder="请详细描述作业的具体要求和内容..." required />
           </div>
 
-          {/* Current Status */}
           <div className="form-group">
             <label className="label">当前完成情况</label>
             <textarea className="input" value={currentStatus} onChange={e => setCurrentStatus(e.target.value)} placeholder="目前写到什么程度了？遇到了什么问题？" />
           </div>
 
-          {/* Expected Help */}
           <div className="form-group">
             <label className="label">希望获得什么帮助</label>
             <textarea className="input" value={expectedHelp} onChange={e => setExpectedHelp(e.target.value)} placeholder="需要重点解决哪些问题？" />
           </div>
 
-          {/* Urgent */}
           <div className="form-group">
             <label className="label">是否加急</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -185,30 +181,22 @@ export default function SubmitPage() {
             </div>
           </div>
 
-          {/* Deadline */}
           <div className="form-group">
             <label className="label">截止时间</label>
             <input className="input" type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} />
           </div>
 
-          {/* File Upload */}
+          {/* File Upload - Now with drag & drop, multi-file, folder support */}
           <div className="form-group">
             <label className="label">上传附件（作业要求文件）</label>
-            <div className={`file-upload ${files.length > 0 ? 'has-file' : ''}`}>
-              <input type="file" multiple onChange={handleFileChange} style={{ display: 'none' }} id="fileInput" />
-              <label htmlFor="fileInput" style={{ cursor: 'pointer', display: 'block' }}>
-                {files.length > 0 ? (
-                  <span style={{ fontSize: '0.875rem', color: 'var(--gray-700)' }}>
-                    已选择 {files.length} 个文件
-                  </span>
-                ) : (
-                  <>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--gray-500)', display: 'block', marginBottom: '0.25rem' }}>点击选择文件</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)' }}>支持 PDF、Word、图片、压缩包等格式</span>
-                  </>
-                )}
-              </label>
-            </div>
+            <FileUploadZone
+              onFilesSelected={handleFilesSelected}
+              label="拖拽作业文件到此处，或点击选择"
+            />
+            <FileListDisplay
+              files={files.map(f => ({ name: f.name, size: f.size }))}
+              onRemove={removeFile}
+            />
           </div>
 
           {/* Price Display */}
