@@ -103,13 +103,11 @@ function initTables() {
     );
   `);
 
-  const count = db.prepare('SELECT COUNT(*) as c FROM invite_codes').get() as { c: number };
-  if (count.c === 0) {
-    const insert = db.prepare('INSERT INTO invite_codes (code) VALUES (?)');
-    for (const code of ['HELPER01', 'HELPER02', 'HELPER03', 'HELPER04', 'HELPER05',
-                        'HELPER06', 'HELPER07', 'HELPER08', 'HELPER09', 'HELPER10']) {
-      insert.run(code);
-    }
+  // Insert invite codes that don't exist yet (idempotent)
+  const insert = db.prepare('INSERT OR IGNORE INTO invite_codes (code) VALUES (?)');
+  const codes = Array.from({ length: 100 }, (_, i) => `HELPER${String(i + 1).padStart(2, '0')}`);
+  for (const code of codes) {
+    insert.run(code);
   }
 
   const adminCount = db.prepare("SELECT COUNT(*) as c FROM users WHERE is_admin = 1").get() as { c: number };

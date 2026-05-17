@@ -244,22 +244,38 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      setMessage('请先选择文件');
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      setMessage('文件超过 50MB 限制');
+      return;
+    }
 
     setUploading(true);
+    setMessage('上传中...');
     const formData = new FormData();
     formData.append('file', file);
     formData.append('order_id', order.id);
     formData.append('is_delivery', '1');
 
-    const res = await fetch('/api/upload', { method: 'POST', body: formData });
-    if (res.ok) {
-      setMessage('文件上传成功');
-      onUpdate();
-    } else {
-      setMessage('上传失败');
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage(`✅ 文件上传成功：${file.name}`);
+        onUpdate();
+      } else {
+        setMessage(`❌ 上传失败：${data.error || res.statusText}`);
+      }
+    } catch (err) {
+      setMessage(`❌ 网络错误：无法连接到服务器`);
     }
     setUploading(false);
+    // Reset file input
+    e.target.value = '';
   }
 
   return (
