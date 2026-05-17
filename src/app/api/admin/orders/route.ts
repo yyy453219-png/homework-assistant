@@ -27,7 +27,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: '无权访问' }, { status: 403 });
   }
 
-  const { orderId, status, admin_note } = await request.json();
+  const { orderId, status, admin_note, paidAmount } = await request.json();
   const db = getDb();
 
   if (status) {
@@ -46,6 +46,20 @@ export async function PUT(request: NextRequest) {
 
   if (admin_note !== undefined) {
     db.prepare('UPDATE orders SET admin_note = ? WHERE id = ?').run(admin_note, orderId);
+  }
+
+  if (paidAmount !== undefined) {
+    const amount = parseFloat(paidAmount);
+    if (isNaN(amount) || amount <= 0) {
+      return NextResponse.json({ error: '无效金额' }, { status: 400 });
+    }
+    // Accumulate paid_amount
+    db.prepare('UPDATE orders SET paid_amount = COALESCE(paid_amount, 0) + ? WHERE id = ?').run(amount, orderId);
+    // Auto-mark as paid if fully paid
+    const updated = db.prepare('SELECT paid_amount, price FROM orders WHERE id = ?').get(orderId) as any;
+    if (updated && updated.paid_amount >= updated.price) {
+      db.prepare('UPDATE orders SET status = ?, paid_at = COALESCE(paid_at, datetime(\'now\',\'localtime\')) WHERE id = ?').run('paid', orderId);
+    }
   }
 
   return NextResponse.json({ success: true });

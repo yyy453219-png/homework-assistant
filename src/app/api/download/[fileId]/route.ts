@@ -24,6 +24,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!order || order.user_id !== user.id) {
       return NextResponse.json({ error: '无权访问' }, { status: 403 });
     }
+    // Delivery files require full payment
+    if (file.is_delivery) {
+      const paid = order.paid_amount || 0;
+      if (paid < order.price) {
+        return NextResponse.json({ error: '请先完成付款' }, { status: 403 });
+      }
+    }
   }
 
   const filePath = path.join(process.cwd(), 'uploads', file.filename);

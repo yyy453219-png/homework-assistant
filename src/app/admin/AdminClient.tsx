@@ -224,6 +224,9 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
   const [message, setMessage] = useState('');
   const [deliveryFiles, setDeliveryFiles] = useState<{ name: string; id: string }[]>([]);
   const [userFiles, setUserFiles] = useState<{ name: string; id: string }[]>([]);
+  const [payAmount, setPayAmount] = useState('');
+
+  const remaining = Math.max(0, order.price - (order.paid_amount || 0));
 
   // Load files on mount
   useState(() => {
@@ -364,19 +367,44 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
       )}
 
       {/* Payment Validation */}
-      {newStatus === 'pending_payment' && (
+      {remaining > 0 && (
         <div className="card" style={{ marginBottom: '1.5rem', borderColor: 'var(--accent)' }}>
           <p style={{ fontSize: '0.7rem', color: 'var(--accent)', marginBottom: '0.5rem', fontWeight: '600' }}>
-            付款确认
+            收款管理
           </p>
-          <p style={{ fontSize: '0.85rem', marginBottom: '0.75rem' }}>
-            应付金额：<strong>¥{order.price}</strong>
-          </p>
-          <button className="btn btn-accent btn-sm" onClick={() => handleStatusChange('paid')}>
-            确认已收款（标记为已付款）
-          </button>
-          <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginTop: '0.5rem' }}>
-            提示：确认付款前请核实收款金额是否正确
+          <div style={{ fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+            <div>总价：<strong>¥{order.price}</strong></div>
+            <div>已收：<strong>¥{order.paid_amount || 0}</strong></div>
+            <div>待收：<strong style={{ color: 'var(--accent)' }}>¥{remaining}</strong></div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.8rem' }}>本次收款：</span>
+            <input type="number" className="input" value={payAmount}
+              onChange={e => setPayAmount(e.target.value)}
+              style={{ width: '120px', padding: '0.4rem 0.5rem', fontSize: '0.85rem' }}
+              placeholder="金额" min="0" max={remaining} />
+            <button className="btn btn-accent btn-sm" onClick={async () => {
+              const amount = parseFloat(payAmount);
+              if (!amount || amount <= 0) { setMessage('请输入有效金额'); return; }
+              if (amount > remaining) { setMessage(`最多收 ¥${remaining}`); return; }
+              const res = await fetch('/api/admin/orders', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: order.id, paidAmount: amount }),
+              });
+              if (res.ok) {
+                setPayAmount('');
+                setMessage(`✅ 已收款 ¥${amount}`);
+                onUpdate();
+                // Reload page to reflect new paid_amount
+                setTimeout(() => window.location.reload(), 500);
+              } else {
+                setMessage('❌ 记录失败');
+              }
+            }}>确认收款</button>
+          </div>
+          <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)' }}>
+            {remaining <= 0 ? '✅ 已付清，用户可下载交付文档' : '收款完成后自动解锁下载'}
           </p>
         </div>
       )}
