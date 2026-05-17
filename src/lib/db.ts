@@ -1,0 +1,123 @@
+import Database from 'better-sqlite3';
+import path from 'path';
+import fs from 'fs';
+
+const dataDir = path.join(process.cwd(), 'data');
+const dbPath = path.join(dataDir, 'app.db');
+
+let db: Database.Database;
+
+export function getDb() {
+  if (!db) {
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
+    initTables();
+  }
+  return db;
+}
+
+function uuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+function initTables() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      nickname TEXT NOT NULL,
+      password TEXT,
+      phone TEXT DEFAULT '',
+      school TEXT DEFAULT '',
+      invite_code TEXT NOT NULL,
+      is_admin INTEGER DEFAULT 0,
+      is_blocked INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now','localtime'))
+    );
+
+    CREATE TABLE IF NOT EXISTS orders (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      course_name TEXT NOT NULL,
+      homework_type TEXT NOT NULL,
+      service_type TEXT NOT NULL,
+      description TEXT NOT NULL,
+      current_status TEXT DEFAULT '',
+      expected_help TEXT DEFAULT '',
+      is_urgent INTEGER DEFAULT 0,
+      deadline TEXT DEFAULT '',
+      price REAL DEFAULT 15,
+      paid_amount REAL DEFAULT 0,
+      status TEXT DEFAULT 'pending_payment',
+      admin_note TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      paid_at TEXT DEFAULT '',
+      delivered_at TEXT DEFAULT '',
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS files (
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      file_type TEXT NOT NULL,
+      file_size INTEGER DEFAULT 0,
+      is_delivery INTEGER DEFAULT 0,
+      uploaded_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (order_id) REFERENCES orders(id),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS invite_codes (
+      code TEXT PRIMARY KEY,
+      used_by TEXT DEFAULT '',
+      is_used INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      used_at TEXT DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS payment_records (
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      amount REAL NOT NULL,
+      method TEXT DEFAULT 'manual',
+      status TEXT DEFAULT 'pending',
+      remark TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      confirmed_at TEXT DEFAULT '',
+      FOREIGN KEY (order_id) REFERENCES orders(id),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT DEFAULT ''
+    );
+  `);
+
+  const count = db.prepare('SELECT COUNT(*) as c FROM invite_codes').get() as { c: number };
+  if (count.c === 0) {
+    const insert = db.prepare('INSERT INTO invite_codes (code) VALUES (?)');
+    for (const code of ['HELPER01', 'HELPER02', 'HELPER03', 'HELPER04', 'HELPER05',
+                        'HELPER06', 'HELPER07', 'HELPER08', 'HELPER09', 'HELPER10']) {
+      insert.run(code);
+    }
+  }
+
+  const adminCount = db.prepare("SELECT COUNT(*) as c FROM users WHERE is_admin = 1").get() as { c: number };
+  if (adminCount.c === 0) {
+    db.prepare('INSERT OR IGNORE INTO users (id, nickname, invite_code, is_admin) VALUES (?, ?, ?, 1)').run(uuid(), '管理员', 'ADMIN001');
+  }
+
+  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('default_price', '15')").run();
+  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('urgent_price', '25')").run();
+  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('max_daily_orders', '3')").run();
+}
