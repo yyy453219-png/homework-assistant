@@ -117,11 +117,11 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
             fontSize: '0.7rem', color: 'var(--gray-400)',
             overflow: 'hidden',
           }}>
-            <img src="/images/qr-code.png" alt="微信收款码"
+            <img src="/images/qr-code.jpg" alt="微信收款码"
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               onError={(e) => {
                 (e.target as HTMLElement).style.display = 'none';
-                (e.target as HTMLElement).parentElement!.innerText = '请替换 public/images/qr-code.png';
+                (e.target as HTMLElement).parentElement!.innerText = '请替换 public/images/qr-code.jpg';
               }}
             />
           </div>
