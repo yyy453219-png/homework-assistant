@@ -1,7 +1,4 @@
-'use client';
-
 import Link from 'next/link';
-import { useState } from 'react';
 
 interface User {
   id: string;
@@ -10,8 +7,6 @@ interface User {
 }
 
 export default function Header({ user }: { user: User | null }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-
   return (
     <header style={{
       borderBottom: '1px solid var(--gray-200)',
