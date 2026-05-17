@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import FilePreviewModal from '@/components/FilePreviewModal';
 
 const statusLabels: Record<string, string> = {
   pending_payment: '待付款',
@@ -80,6 +81,7 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
   const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState('');
   const [paymentNotified, setPaymentNotified] = useState(false);
+  const [previewFile, setPreviewFile] = useState<{ id: string; name: string } | null>(null);
 
   async function handlePaymentConfirm() {
     setConfirming(true);
@@ -231,6 +233,10 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
               <Link href={`/api/download/${f.id}`} className="btn btn-outline btn-sm" style={{ fontSize: '0.7rem', padding: '0.25rem 0.75rem' }}>
                 下载
               </Link>
+              <button onClick={() => setPreviewFile({ id: f.id, name: f.original_name })}
+                className="btn btn-outline btn-sm" style={{ fontSize: '0.7rem', padding: '0.25rem 0.75rem', fontFamily: 'inherit' }}>
+                预览
+              </button>
             </div>
           ))}
         </div>
@@ -261,6 +267,10 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
               <Link href={`/api/download/${d.id}`} className="btn btn-accent btn-sm" style={{ fontSize: '0.7rem', padding: '0.25rem 0.75rem' }}>
                 下载
               </Link>
+              <button onClick={() => setPreviewFile({ id: d.id, name: d.original_name })}
+                className="btn btn-outline btn-sm" style={{ fontSize: '0.7rem', padding: '0.25rem 0.75rem', fontFamily: 'inherit' }}>
+                预览
+              </button>
             </div>
           ))}
         </div>
@@ -279,6 +289,13 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
         <p style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginBottom: '0.75rem' }}>需要帮助？联系客服</p>
         <p style={{ fontSize: '0.75rem', color: 'var(--gray-400)' }}>微信：请添加客服微信号</p>
       </div>
+
+      <FilePreviewModal
+        fileId={previewFile?.id || ''}
+        fileName={previewFile?.name || ''}
+        visible={!!previewFile}
+        onClose={() => setPreviewFile(null)}
+      />
     </div>
   );
 }
