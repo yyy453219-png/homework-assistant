@@ -209,7 +209,7 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
       {/* Customer Service */}
       <div style={{ textAlign: 'center', padding: '2rem 0' }}>
         <p style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginBottom: '0.75rem' }}>需要帮助？联系客服</p>
-        <p style={{ fontSize: '0.75rem', color: 'var(--gray-400)' }}>微信：请添加客服微信号</p>
+        <p style={{ fontSize: '0.75rem', color: 'var(--gray-400)' }}>微信：你真实的微信号</p>
       </div>
     </div>
   );
