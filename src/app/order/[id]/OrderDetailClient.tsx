@@ -115,8 +115,15 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
             marginBottom: '1rem',
             border: '1px solid var(--gray-200)',
             fontSize: '0.7rem', color: 'var(--gray-400)',
+            overflow: 'hidden',
           }}>
-            收款码放置区域<br/>（替换为你的微信收款码图片）
+            <img src="/images/qr-code.png" alt="微信收款码"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = 'none';
+                (e.target as HTMLElement).parentElement!.innerText = '请替换 public/images/qr-code.png';
+              }}
+            />
           </div>
           <button className="btn btn-primary btn-sm" onClick={handlePaymentConfirm} disabled={confirming}>
             {confirming ? '确认中...' : '我已付款'}
@@ -202,7 +209,7 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
       {/* Customer Service */}
       <div style={{ textAlign: 'center', padding: '2rem 0' }}>
         <p style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginBottom: '0.75rem' }}>需要帮助？联系客服</p>
-        <p style={{ fontSize: '0.75rem', color: 'var(--gray-400)' }}>微信：your_wechat_id</p>
+        <p style={{ fontSize: '0.75rem', color: 'var(--gray-400)' }}>微信：请添加客服微信号</p>
       </div>
     </div>
   );
