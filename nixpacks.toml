@@ -1,7 +1,0 @@
-providers = ["node"]
-
-[node]
-version = "20"
-
-[phases.setup]
-nixPkgs = ["...", "gcc", "python3", "gnumake", "pkg-config"]
