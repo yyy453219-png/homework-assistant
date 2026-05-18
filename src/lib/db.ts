@@ -2,7 +2,10 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
-const dataDir = path.join(process.cwd(), 'data');
+// Support Railway persistent volume: env RAILWAY_VOLUME_MOUNT_PATH or fallback to ./data
+const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH
+  ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'data')
+  : path.join(process.cwd(), 'data');
 const dbPath = path.join(dataDir, 'app.db');
 
 let db: Database.Database;

@@ -1,0 +1,17 @@
+{
+  "build": {
+    "builder": "NIXPACKS",
+    "watchPatterns": [
+      "src/**/*",
+      "public/**/*",
+      "package.json",
+      "next.config.ts"
+    ]
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "restartPolicyType": "ON_FAILURE",
+    "healthcheckPath": "/api/ping",
+    "healthcheckTimeout": 100
+  }
+}
