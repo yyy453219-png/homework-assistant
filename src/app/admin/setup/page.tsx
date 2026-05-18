@@ -45,7 +45,7 @@ export default function AdminSetupPage() {
         <div style={{ textAlign: 'center' }}>
           <h1 style={{ marginBottom: '1rem' }}>密码设置成功</h1>
           <p style={{ color: 'var(--gray-500)', marginBottom: '2rem', fontSize: '0.875rem' }}>
-            管理员密码已设置，请使用昵称「管理员」登录
+            管理员密码已设置，请使用昵称「admin」登录
           </p>
           <Link href="/login" className="btn btn-primary">前往登录</Link>
         </div>

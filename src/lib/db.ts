@@ -115,10 +115,10 @@ function initTables() {
 
   const adminCount = db.prepare("SELECT COUNT(*) as c FROM users WHERE is_admin = 1").get() as { c: number };
   if (adminCount.c === 0) {
-    db.prepare('INSERT OR IGNORE INTO users (id, nickname, invite_code, is_admin) VALUES (?, ?, ?, 1)').run(uuid(), '管理员', 'ADMIN001');
+    db.prepare('INSERT OR IGNORE INTO users (id, nickname, invite_code, is_admin) VALUES (?, ?, ?, 1)').run(uuid(), 'admin', 'ADMIN001');
   } else {
-    // Fix admin nickname if it got corrupted (encoding issues on some deployments)
-    db.prepare("UPDATE users SET nickname = '管理员' WHERE is_admin = 1 AND nickname != '管理员'").run();
+    // Fix admin nickname to ASCII to avoid encoding issues
+    db.prepare("UPDATE users SET nickname = 'admin' WHERE is_admin = 1").run();
   }
 
   db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('default_price', '15')").run();
