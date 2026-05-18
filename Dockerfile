@@ -23,13 +23,6 @@ FROM node:22-slim AS production
 
 WORKDIR /app
 
-# Install build dependencies for native modules at runtime
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
-
 # Copy built app and dependencies
 COPY --from=build /app/package*.json ./
 COPY --from=build /app/node_modules ./node_modules
