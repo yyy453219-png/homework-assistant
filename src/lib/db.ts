@@ -118,4 +118,12 @@ function initTables() {
   db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('default_price', '15')").run();
   db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('urgent_price', '25')").run();
   db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('max_daily_orders', '3')").run();
+
+  // Performance indexes
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+    CREATE INDEX IF NOT EXISTS idx_files_order_id ON files(order_id);
+    CREATE INDEX IF NOT EXISTS idx_payment_records_order_id ON payment_records(order_id);
+  `);
 }
