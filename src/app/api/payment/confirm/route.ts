@@ -9,10 +9,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '请先登录' }, { status: 401 });
   }
 
-  const { orderId } = await request.json();
+  const { orderId, amount } = await request.json();
 
   if (!orderId) {
     return NextResponse.json({ error: '缺少订单ID' }, { status: 400 });
+  }
+
+  const donation = parseFloat(amount);
+  if (!donation || donation <= 0) {
+    return NextResponse.json({ error: '请输入有效的打赏金额' }, { status: 400 });
   }
 
   const db = getDb();
@@ -31,7 +36,7 @@ export async function POST(request: NextRequest) {
   db.prepare(`
     INSERT INTO payment_records (id, order_id, user_id, amount, method, status, remark)
     VALUES (?, ?, ?, ?, 'manual', 'pending_payment', '用户已付款，等待管理员确认')
-  `).run(paymentId, orderId, user.id, order.price);
+  `).run(paymentId, orderId, user.id, donation);
 
   // Don't auto-mark as paid - admin must verify
   // Just record the payment intent and leave order as pending_payment
