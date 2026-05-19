@@ -26,81 +26,121 @@ export default function FileUploadZone({ onFilesSelected, accept, multiple = tru
   const [dragOver, setDragOver] = useState(false);
   const [packing, setPacking] = useState(false);
 
-  const processFiles = useCallback(async (fileList: FileList) => {
-    // Check if files come from a folder (webkitRelativePath is set)
-    const isFolder = fileList.length > 0 && fileList[0].webkitRelativePath !== '';
-
-    if (isFolder) {
-      // Collect folder files, preserving relative paths
-      setPacking(true);
-      try {
-        const zip = new JSZip();
-
-        let totalSize = 0;
-        for (let i = 0; i < fileList.length; i++) {
-          const f = fileList[i];
-          if (f.size > maxSize) {
-            alert(`文件 ${f.name} 超过 ${maxSize / 1024 / 1024}MB 限制`);
-            setPacking(false);
-            return;
-          }
-          totalSize += f.size;
-          // Use webkitRelativePath to preserve folder structure inside zip
-          zip.file(f.webkitRelativePath, f);
-        }
-
-        if (totalSize > 500 * 1024 * 1024) {
-          alert('文件夹总大小超过 500MB，请减小后重试');
-          setPacking(false);
-          return;
-        }
-
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
-
-        // Extract folder name from the first file's relative path
-        const folderName = fileList[0].webkitRelativePath.split('/')[0] || 'folder';
-        const zipFile = new File([zipBlob], `${folderName}.zip`, { type: 'application/zip' });
-
-        onFilesSelected([zipFile]);
-      } catch (err) {
-        console.error('Zip error:', err);
-        alert('打包文件夹失败，请尝试压缩为 ZIP 后直接上传');
+  // Synchronously extract files from a FileList (does NOT handle folders)
+  const extractFiles = useCallback((fileList: FileList): File[] => {
+    const files: File[] = [];
+    for (let i = 0; i < fileList.length; i++) {
+      const f = fileList[i];
+      if (f.size > maxSize) {
+        alert(`文件 ${f.name} 超过 ${maxSize / 1024 / 1024}MB 限制`);
+        continue;
       }
-      setPacking(false);
-    } else {
-      const files: File[] = [];
+      files.push(f);
+    }
+    return files;
+  }, [maxSize]);
+
+  // Handle folder: read all files into ArrayBuffers synchronously, then zip
+  const handleFolder = useCallback(async (fileList: FileList) => {
+    setPacking(true);
+    try {
+      // First, read ALL files into ArrayBuffers synchronously
+      // (File objects from drag events may become invalid if not read promptly)
+      const entries: { path: string; buffer: ArrayBuffer }[] = [];
+      let totalSize = 0;
+
       for (let i = 0; i < fileList.length; i++) {
         const f = fileList[i];
         if (f.size > maxSize) {
           alert(`文件 ${f.name} 超过 ${maxSize / 1024 / 1024}MB 限制`);
-          continue;
+          setPacking(false);
+          return;
         }
-        files.push(f);
+        totalSize += f.size;
+        // Read the file data immediately (within the event context)
+        const buffer = await f.arrayBuffer();
+        entries.push({ path: f.webkitRelativePath, buffer });
       }
-      if (files.length > 0) {
-        onFilesSelected(files);
+
+      if (totalSize > 500 * 1024 * 1024) {
+        alert('文件夹总大小超过 500MB，请减小后重试');
+        setPacking(false);
+        return;
       }
+
+      // Now zip using the already-read buffers
+      const zip = new JSZip();
+      for (const entry of entries) {
+        zip.file(entry.path, entry.buffer);
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const folderName = fileList[0].webkitRelativePath.split('/')[0] || 'folder';
+      const zipFile = new File([zipBlob], `${folderName}.zip`, { type: 'application/zip' });
+
+      onFilesSelected([zipFile]);
+    } catch (err) {
+      console.error('Zip error:', err);
+      alert('打包文件夹失败，请尝试压缩为 ZIP 后直接上传');
     }
+    setPacking(false);
   }, [maxSize, onFilesSelected]);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setDragOver(false);
-    if (e.dataTransfer.files.length > 0) {
-      processFiles(e.dataTransfer.files);
+
+    try {
+      const fileList = e.dataTransfer.files;
+      if (!fileList || fileList.length === 0) return;
+
+      // Check if dropping a folder (files have webkitRelativePath)
+      const isFolder = fileList[0].webkitRelativePath !== '';
+
+      if (isFolder) {
+        await handleFolder(fileList);
+      } else {
+        const files = extractFiles(fileList);
+        if (files.length > 0) {
+          onFilesSelected(files);
+        }
+      }
+    } catch (err) {
+      console.error('Drop error:', err);
+      alert('上传失败，请尝试点击选择文件');
     }
-  }, [processFiles]);
+  }, [extractFiles, handleFolder, onFilesSelected]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setDragOver(true);
   };
 
-  const handleDragLeave = () => setDragOver(false);
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      processFiles(e.target.files);
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    try {
+      const fileList = e.target.files;
+      const isFolder = fileList[0].webkitRelativePath !== '';
+
+      if (isFolder) {
+        await handleFolder(fileList);
+      } else {
+        const files = extractFiles(fileList);
+        if (files.length > 0) {
+          onFilesSelected(files);
+        }
+      }
+    } catch (err) {
+      console.error('File select error:', err);
+      alert('选择文件失败，请重试');
     }
     e.target.value = '';
   };
@@ -120,6 +160,7 @@ export default function FileUploadZone({ onFilesSelected, accept, multiple = tru
           cursor: 'pointer',
           transition: 'all 0.2s',
           borderRadius: 0,
+          position: 'relative',
         }}
       >
         <div style={{ fontSize: '0.875rem', color: dragOver ? 'var(--accent)' : 'var(--gray-500)', marginBottom: '0.5rem' }}>
