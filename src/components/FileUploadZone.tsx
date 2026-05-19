@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import JSZip from 'jszip';
 
 export interface UploadFile {
   id: string;
@@ -23,19 +24,62 @@ export default function FileUploadZone({ onFilesSelected, accept, multiple = tru
   const inputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [packing, setPacking] = useState(false);
 
-  const processFiles = useCallback((fileList: FileList) => {
-    const files: File[] = [];
-    for (let i = 0; i < fileList.length; i++) {
-      const f = fileList[i];
-      if (f.size > maxSize) {
-        alert(`文件 ${f.name} 超过 ${maxSize / 1024 / 1024}MB 限制`);
-        continue;
+  const processFiles = useCallback(async (fileList: FileList) => {
+    // Check if files come from a folder (webkitRelativePath is set)
+    const isFolder = fileList.length > 0 && fileList[0].webkitRelativePath !== '';
+
+    if (isFolder) {
+      // Collect folder files, preserving relative paths
+      setPacking(true);
+      try {
+        const zip = new JSZip();
+
+        let totalSize = 0;
+        for (let i = 0; i < fileList.length; i++) {
+          const f = fileList[i];
+          if (f.size > maxSize) {
+            alert(`文件 ${f.name} 超过 ${maxSize / 1024 / 1024}MB 限制`);
+            setPacking(false);
+            return;
+          }
+          totalSize += f.size;
+          // Use webkitRelativePath to preserve folder structure inside zip
+          zip.file(f.webkitRelativePath, f);
+        }
+
+        if (totalSize > 500 * 1024 * 1024) {
+          alert('文件夹总大小超过 500MB，请减小后重试');
+          setPacking(false);
+          return;
+        }
+
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+        // Extract folder name from the first file's relative path
+        const folderName = fileList[0].webkitRelativePath.split('/')[0] || 'folder';
+        const zipFile = new File([zipBlob], `${folderName}.zip`, { type: 'application/zip' });
+
+        onFilesSelected([zipFile]);
+      } catch (err) {
+        console.error('Zip error:', err);
+        alert('打包文件夹失败，请尝试压缩为 ZIP 后直接上传');
       }
-      files.push(f);
-    }
-    if (files.length > 0) {
-      onFilesSelected(files);
+      setPacking(false);
+    } else {
+      const files: File[] = [];
+      for (let i = 0; i < fileList.length; i++) {
+        const f = fileList[i];
+        if (f.size > maxSize) {
+          alert(`文件 ${f.name} 超过 ${maxSize / 1024 / 1024}MB 限制`);
+          continue;
+        }
+        files.push(f);
+      }
+      if (files.length > 0) {
+        onFilesSelected(files);
+      }
     }
   }, [maxSize, onFilesSelected]);
 
@@ -79,10 +123,10 @@ export default function FileUploadZone({ onFilesSelected, accept, multiple = tru
         }}
       >
         <div style={{ fontSize: '0.875rem', color: dragOver ? 'var(--accent)' : 'var(--gray-500)', marginBottom: '0.5rem' }}>
-          {dragOver ? '释放文件以上传' : label}
+          {packing ? '正在打包文件夹...' : (dragOver ? '释放文件以上传' : label)}
         </div>
         <div style={{ fontSize: '0.7rem', color: 'var(--gray-400)' }}>
-          支持多个文件{allowFolder ? '和文件夹' : ''} · 每个最大 {maxSize / 1024 / 1024}MB
+          {packing ? '请稍候，文件夹压缩中' : `支持多个文件${allowFolder ? '和文件夹' : ''} · 每个最大 ${maxSize / 1024 / 1024}MB`}
         </div>
       </div>
 
@@ -108,7 +152,7 @@ export default function FileUploadZone({ onFilesSelected, accept, multiple = tru
       )}
 
       {allowFolder && (
-        <div style={{ marginTop: '0.5rem', textAlign: 'right' }}>
+        <div style={{ marginTop: '0.75rem', textAlign: 'right' }}>
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); folderInputRef.current?.click(); }}
@@ -120,6 +164,14 @@ export default function FileUploadZone({ onFilesSelected, accept, multiple = tru
           >
             选择文件夹上传
           </button>
+          {packing && (
+            <span style={{ fontSize: '0.75rem', color: 'var(--accent)', marginLeft: '0.75rem' }}>
+              正在打包文件夹...
+            </span>
+          )}
+          <div style={{ fontSize: '0.65rem', color: 'var(--gray-400)', marginTop: '0.25rem' }}>
+            文件夹将自动打包为 ZIP 文件上传，内部目录结构保持不变
+          </div>
         </div>
       )}
     </div>
