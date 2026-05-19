@@ -123,8 +123,6 @@ export default function SubmitPage() {
     );
   }
 
-  const price = isUrgent ? 25 : 15;
-
   return (
     <div className="page">
       <div style={{ maxWidth: '680px', margin: '0 auto', padding: '3rem 1.5rem' }}>
@@ -176,7 +174,7 @@ export default function SubmitPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <input type="checkbox" id="urgent" checked={isUrgent} onChange={e => setIsUrgent(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: 'var(--black)' }} />
               <label htmlFor="urgent" style={{ fontSize: '0.875rem' }}>
-                加急（6-12小时交付，加收 10 元）
+                加急（6-12小时优先处理）
               </label>
             </div>
           </div>
@@ -197,17 +195,6 @@ export default function SubmitPage() {
               files={files.map(f => ({ name: f.name, size: f.size }))}
               onRemove={removeFile}
             />
-          </div>
-
-          {/* Price Display */}
-          <div className="geo-block" style={{ marginBottom: '1.5rem' }}>
-            <span className="section-number" style={{ marginBottom: '0.25rem' }}>价格</span>
-            <div className="price-large">
-              <span className="currency">¥</span>{price}
-            </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginTop: '0.5rem' }}>
-              {isUrgent ? '加急服务 · 6-12小时交付' : '标准服务 · 24-48小时交付'}
-            </p>
           </div>
 
           {/* Agreement */}
