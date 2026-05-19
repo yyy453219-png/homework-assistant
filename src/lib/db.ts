@@ -132,10 +132,9 @@ function initTables() {
     CREATE INDEX IF NOT EXISTS idx_payment_records_order_id ON payment_records(order_id);
   `);
 
-  // Add download_allowed column for existing databases
-  try {
+  // Add download_allowed column for existing databases (idempotent)
+  const columns = db.pragma('table_info(orders)') as any[];
+  if (!columns.some((c: any) => c.name === 'download_allowed')) {
     db.exec("ALTER TABLE orders ADD COLUMN download_allowed INTEGER DEFAULT 0");
-  } catch {
-    // Column already exists — ignore
   }
 }
