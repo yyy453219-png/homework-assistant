@@ -57,13 +57,15 @@ interface Props {
   orders: Order[];
   users: any[];
   user: User;
+  resourceCategories: any[];
+  allPermissions: any[];
 }
 
-export default function AdminClient({ orders, users, user }: Props) {
+export default function AdminClient({ orders, users, user, resourceCategories, allPermissions }: Props) {
   const router = useRouter();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [statusFilter, setStatusFilter] = useState('all');
-  const [tab, setTab] = useState<'orders' | 'users'>('orders');
+  const [tab, setTab] = useState<'orders' | 'users' | 'resources'>('orders');
   const [orderFiles, setOrderFiles] = useState<FileInfo[]>([]);
 
   const filteredOrders = statusFilter === 'all'
@@ -97,6 +99,13 @@ export default function AdminClient({ orders, users, user }: Props) {
             fontWeight: tab === 'users' ? '600' : '400', fontFamily: 'inherit',
           }}>
             用户管理
+          </button>
+          <button onClick={() => setTab('resources')} style={{
+            textAlign: 'left', padding: '0.5rem 0', background: 'none', border: 'none',
+            fontSize: '0.875rem', cursor: 'pointer', color: tab === 'resources' ? 'var(--black)' : 'var(--gray-500)',
+            fontWeight: tab === 'resources' ? '600' : '400', fontFamily: 'inherit',
+          }}>
+            资源管理
           </button>
         </nav>
       </div>
@@ -208,6 +217,349 @@ export default function AdminClient({ orders, users, user }: Props) {
               </table>
             </div>
           </>
+        )}
+
+        {tab === 'resources' && (
+          <ResourceAdminPanel
+            categories={resourceCategories}
+            users={users}
+            allPermissions={allPermissions}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Resource Library Admin Panel
+function ResourceAdminPanel({ categories: initialCategories, users, allPermissions: initialPermissions }: {
+  categories: any[];
+  users: any[];
+  allPermissions: any[];
+}) {
+  const router = useRouter();
+  const [categories, setCategories] = useState(initialCategories);
+  const [permissions, setPermissions] = useState(initialPermissions);
+
+  // Category form state
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatDesc, setNewCatDesc] = useState('');
+  const [newCatShape, setNewCatShape] = useState('corner-tl');
+  const [newCatOrder, setNewCatOrder] = useState('0');
+  const [catMessage, setCatMessage] = useState('');
+
+  // File upload state
+  const [selectedCatForUpload, setSelectedCatForUpload] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState('');
+  const [catFiles, setCatFiles] = useState<any[]>([]);
+
+  // Permission state
+  const [permUser, setPermUser] = useState('');
+  const [permCat, setPermCat] = useState('');
+  const [permMessage, setPermMessage] = useState('');
+
+  async function createCategory() {
+    if (!newCatName.trim()) { setCatMessage('请输入分类名称'); return; }
+    const res = await fetch('/api/resources/categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: newCatName,
+        description: newCatDesc,
+        shape: newCatShape,
+        sort_order: parseInt(newCatOrder) || 0,
+      }),
+    });
+    if (res.ok) {
+      setCatMessage('✅ 分类已创建');
+      setNewCatName(''); setNewCatDesc(''); setNewCatShape('corner-tl'); setNewCatOrder('0');
+      router.refresh();
+      setTimeout(() => window.location.reload(), 500);
+    } else {
+      const data = await res.json();
+      setCatMessage(`❌ ${data.error || '创建失败'}`);
+    }
+  }
+
+  async function deleteCategory(id: string) {
+    if (!confirm('确定要删除该分类及其所有文件？')) return;
+    const res = await fetch(`/api/resources/categories/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setCatMessage('✅ 分类已删除');
+      router.refresh();
+      setTimeout(() => window.location.reload(), 500);
+    } else {
+      setCatMessage('❌ 删除失败');
+    }
+  }
+
+  async function loadFiles(categoryId: string) {
+    if (!categoryId) { setCatFiles([]); return; }
+    const res = await fetch(`/api/resources/categories/${categoryId}`);
+    const data = await res.json();
+    setCatFiles(data.files || []);
+  }
+
+  async function handleUploadFiles(files: File[]) {
+    if (!selectedCatForUpload) { setUploadMessage('请先选择分类'); return; }
+    setUploading(true);
+    setUploadMessage('上传中...');
+    const formData = new FormData();
+    for (const f of files) formData.append('files[]', f);
+    formData.append('category_id', selectedCatForUpload);
+    try {
+      const res = await fetch('/api/resources/files', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        setUploadMessage(`✅ 成功上传 ${data.count} 个文件`);
+        loadFiles(selectedCatForUpload);
+        router.refresh();
+      } else {
+        setUploadMessage(`❌ ${data.error || '上传失败'}`);
+      }
+    } catch {
+      setUploadMessage('❌ 网络错误');
+    }
+    setUploading(false);
+  }
+
+  async function deleteResourceFile(fileId: string) {
+    if (!confirm('确定要删除该文件？')) return;
+    const res = await fetch(`/api/resources/files/${fileId}`, { method: 'DELETE' });
+    if (res.ok) {
+      setUploadMessage('✅ 文件已删除');
+      loadFiles(selectedCatForUpload);
+    } else {
+      setUploadMessage('❌ 删除失败');
+    }
+  }
+
+  async function grantPermission() {
+    if (!permUser || !permCat) { setPermMessage('请选择用户和分类'); return; }
+    const res = await fetch('/api/resources/permissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: permUser, categoryId: permCat }),
+    });
+    if (res.ok) {
+      setPermMessage('✅ 权限已授予');
+      router.refresh();
+      setTimeout(() => window.location.reload(), 500);
+    } else {
+      setPermMessage('❌ 授权失败');
+    }
+  }
+
+  async function revokePermission(userId: string, categoryId: string) {
+    const res = await fetch('/api/resources/permissions', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, categoryId }),
+    });
+    if (res.ok) {
+      setPermMessage('✅ 权限已撤销');
+      router.refresh();
+      setTimeout(() => window.location.reload(), 500);
+    } else {
+      setPermMessage('❌ 撤销失败');
+    }
+  }
+
+  const shapeOptions = [
+    { value: 'corner-tl', label: '左上角标' },
+    { value: 'corner-tr', label: '右上角标' },
+    { value: 'corner-bl', label: '左下角标' },
+    { value: 'corner-br', label: '右下角标' },
+    { value: 'accent-bottom', label: '底部强调' },
+    { value: 'accent-left', label: '左侧强调' },
+    { value: 'diagonal', label: '对角标记' },
+    { value: 'cross', label: '十字标记' },
+  ];
+
+  return (
+    <div>
+      <h2 style={{ marginBottom: '1.5rem' }}>资源管理</h2>
+
+      {/* A. Category Management */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.75rem', fontWeight: '600' }}>
+          分类管理
+        </p>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: '1rem' }}>
+          <div style={{ flex: '1', minWidth: '140px' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)', display: 'block', marginBottom: '0.25rem' }}>名称</span>
+            <input className="input" value={newCatName} onChange={e => setNewCatName(e.target.value)}
+              style={{ padding: '0.4rem 0.5rem', fontSize: '0.85rem' }} placeholder="分类名称" />
+          </div>
+          <div style={{ flex: '1', minWidth: '140px' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)', display: 'block', marginBottom: '0.25rem' }}>描述</span>
+            <input className="input" value={newCatDesc} onChange={e => setNewCatDesc(e.target.value)}
+              style={{ padding: '0.4rem 0.5rem', fontSize: '0.85rem' }} placeholder="可选" />
+          </div>
+          <div style={{ minWidth: '120px' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)', display: 'block', marginBottom: '0.25rem' }}>形状</span>
+            <select className="select-input" value={newCatShape} onChange={e => setNewCatShape(e.target.value)}
+              style={{ padding: '0.4rem 0.5rem', fontSize: '0.85rem' }}>
+              {shapeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div style={{ width: '80px' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)', display: 'block', marginBottom: '0.25rem' }}>排序</span>
+            <input className="input" type="number" value={newCatOrder} onChange={e => setNewCatOrder(e.target.value)}
+              style={{ padding: '0.4rem 0.5rem', fontSize: '0.85rem' }} />
+          </div>
+          <button className="btn btn-accent btn-sm" onClick={createCategory}>创建分类</button>
+        </div>
+        {catMessage && <p style={{ fontSize: '0.8rem', color: catMessage.startsWith('✅') ? '#2a9d8f' : 'var(--accent)' }}>{catMessage}</p>}
+
+        {categories.length > 0 && (
+          <div style={{ marginTop: '1rem' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>名称</th>
+                  <th>形状</th>
+                  <th>文件数</th>
+                  <th>排序</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {categories.map((cat: any) => (
+                  <tr key={cat.id}>
+                    <td style={{ fontSize: '0.85rem' }}>{cat.name}</td>
+                    <td style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)' }}>{shapeOptions.find(o => o.value === cat.shape)?.label || cat.shape}</td>
+                    <td style={{ fontSize: '0.8rem' }}>{cat.file_count}</td>
+                    <td style={{ fontSize: '0.8rem' }}>{cat.sort_order}</td>
+                    <td>
+                      <button onClick={() => deleteCategory(cat.id)}
+                        className="btn btn-sm"
+                        style={{ fontSize: '0.7rem', padding: '0.25rem 0.75rem', border: '1px solid var(--gray-200)', background: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        删除
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* B. File Management */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.75rem', fontWeight: '600' }}>
+          文件管理
+        </p>
+        <div style={{ marginBottom: '1rem' }}>
+          <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)', display: 'block', marginBottom: '0.25rem' }}>选择分类</span>
+          <select className="select-input" value={selectedCatForUpload} onChange={e => {
+            setSelectedCatForUpload(e.target.value);
+            loadFiles(e.target.value);
+          }} style={{ padding: '0.4rem 0.5rem', fontSize: '0.85rem', maxWidth: '300px' }}>
+            <option value="">-- 请选择 --</option>
+            {categories.map((cat: any) => (
+              <option key={cat.id} value={cat.id}>{cat.name} ({cat.file_count} 个文件)</option>
+            ))}
+          </select>
+        </div>
+
+        {selectedCatForUpload && (
+          <>
+            <FileUploadZone
+              onFilesSelected={handleUploadFiles}
+              label="拖拽文件到此处上传到该分类"
+            />
+            {uploading && <p style={{ fontSize: '0.75rem', color: 'var(--gray-500)', marginTop: '0.5rem' }}>上传中...</p>}
+            {uploadMessage && <p style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: uploadMessage.startsWith('✅') ? '#2a9d8f' : 'var(--accent)' }}>{uploadMessage}</p>}
+
+            {catFiles.length > 0 && (
+              <div style={{ marginTop: '1rem' }}>
+                <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.5rem' }}>
+                  已上传文件（{catFiles.length} 个）：
+                </p>
+                {catFiles.map((f: any, i: number) => (
+                  <div key={f.id} style={{
+                    display: 'flex', alignItems: 'center', gap: '0.5rem',
+                    padding: '0.35rem 0.5rem', borderBottom: '1px solid var(--gray-100)',
+                    fontSize: '0.8rem',
+                  }}>
+                    <span style={{ flex: 1 }}>{f.original_name}</span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)' }}>
+                      {f.file_size > 0 ? `${(f.file_size / 1024).toFixed(1)} KB` : '0 B'}
+                    </span>
+                    <button onClick={() => deleteResourceFile(f.id)}
+                      style={{ fontSize: '0.7rem', color: 'var(--gray-500)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                      删除
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* C. Permission Management */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.75rem', fontWeight: '600' }}>
+          下载权限管理
+        </p>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: '1rem' }}>
+          <div style={{ minWidth: '160px' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)', display: 'block', marginBottom: '0.25rem' }}>用户</span>
+            <select className="select-input" value={permUser} onChange={e => setPermUser(e.target.value)}
+              style={{ padding: '0.4rem 0.5rem', fontSize: '0.85rem' }}>
+              <option value="">-- 请选择 --</option>
+              {users.filter((u: any) => !u.is_blocked).map((u: any) => (
+                <option key={u.id} value={u.id}>{u.nickname}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ minWidth: '160px' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)', display: 'block', marginBottom: '0.25rem' }}>分类</span>
+            <select className="select-input" value={permCat} onChange={e => setPermCat(e.target.value)}
+              style={{ padding: '0.4rem 0.5rem', fontSize: '0.85rem' }}>
+              <option value="">-- 请选择 --</option>
+              {categories.map((cat: any) => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+          <button className="btn btn-accent btn-sm" onClick={grantPermission}>授予权限</button>
+        </div>
+        {permMessage && <p style={{ fontSize: '0.8rem', color: permMessage.startsWith('✅') ? '#2a9d8f' : 'var(--accent)' }}>{permMessage}</p>}
+
+        {permissions.length > 0 && (
+          <div style={{ marginTop: '1rem' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>用户</th>
+                  <th>分类</th>
+                  <th>授予时间</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {permissions.map((p: any) => (
+                  <tr key={p.id}>
+                    <td style={{ fontSize: '0.85rem' }}>{p.user_name}</td>
+                    <td style={{ fontSize: '0.85rem' }}>{p.category_name}</td>
+                    <td style={{ fontSize: '0.75rem', color: 'var(--gray-400)' }}>{p.created_at}</td>
+                    <td>
+                      <button onClick={() => revokePermission(p.user_id, p.category_id)}
+                        className="btn btn-sm"
+                        style={{ fontSize: '0.7rem', padding: '0.25rem 0.75rem', border: '1px solid var(--gray-200)', background: 'none', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--accent)' }}>
+                        撤销
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

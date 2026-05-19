@@ -31,6 +31,9 @@ export default async function HomePage() {
           <Link href="/orders" className="btn btn-outline">
             我的订单
           </Link>
+          <Link href="/resources" className="btn btn-outline">
+            资料库
+          </Link>
         </div>
       </section>
 

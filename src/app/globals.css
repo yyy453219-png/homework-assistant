@@ -443,3 +443,79 @@ td {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* ========== RESOURCE LIBRARY ========== */
+
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+.geo-shape-corner-tr::before {
+  top: -1px;
+  left: auto;
+  right: -1px;
+  border-top: 3px solid var(--accent);
+  border-right: 3px solid var(--accent);
+  border-left: none;
+}
+
+.geo-shape-corner-bl::before {
+  top: auto;
+  bottom: -1px;
+  left: -1px;
+  border-top: none;
+  border-bottom: 3px solid var(--accent);
+  border-left: 3px solid var(--accent);
+}
+
+.geo-shape-corner-br::before {
+  top: auto;
+  bottom: -1px;
+  left: auto;
+  right: -1px;
+  border-top: none;
+  border-bottom: 3px solid var(--accent);
+  border-right: 3px solid var(--accent);
+  border-left: none;
+}
+
+.geo-shape-accent-bottom {
+  border-bottom: 3px solid var(--accent);
+}
+
+.geo-shape-accent-left {
+  border-left: 3px solid var(--accent);
+}
+
+.geo-shape-diagonal::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 2rem;
+  height: 2rem;
+  border-bottom: 3px solid var(--accent);
+  border-right: 3px solid var(--accent);
+}
+
+.geo-shape-cross::before {
+  width: 2rem;
+  height: 3px;
+  background: var(--accent);
+  top: 1rem;
+  left: -1px;
+  border: none;
+}
+
+.geo-shape-cross::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 1rem;
+  width: 3px;
+  height: 2rem;
+  background: var(--accent);
+  border: none;
+}

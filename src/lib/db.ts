@@ -137,4 +137,44 @@ function initTables() {
   if (!columns.some((c: any) => c.name === 'download_allowed')) {
     db.exec("ALTER TABLE orders ADD COLUMN download_allowed INTEGER DEFAULT 0");
   }
+
+  // Resource Library tables
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS resource_categories (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      shape TEXT DEFAULT 'corner-tl',
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now','localtime'))
+    );
+
+    CREATE TABLE IF NOT EXISTS resource_files (
+      id TEXT PRIMARY KEY,
+      category_id TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      file_type TEXT NOT NULL,
+      file_size INTEGER DEFAULT 0,
+      uploaded_by TEXT NOT NULL,
+      uploaded_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (category_id) REFERENCES resource_categories(id),
+      FOREIGN KEY (uploaded_by) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS resource_permissions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      category_id TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (category_id) REFERENCES resource_categories(id)
+    );
+  `);
+
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_resource_perms_unique ON resource_permissions(user_id, category_id);
+    CREATE INDEX IF NOT EXISTS idx_resource_files_category ON resource_files(category_id);
+    CREATE INDEX IF NOT EXISTS idx_resource_categories_sort ON resource_categories(sort_order);
+  `);
 }

@@ -36,6 +36,9 @@ export default function Header({ user }: { user: User | null }) {
           <Link href="/orders" style={{ fontSize: '0.8rem', color: 'var(--gray-500)', textDecoration: 'none', letterSpacing: '0.03em' }}>
             我的订单
           </Link>
+          <Link href="/resources" style={{ fontSize: '0.8rem', color: 'var(--gray-500)', textDecoration: 'none', letterSpacing: '0.03em' }}>
+            资料库
+          </Link>
           {user?.is_admin ? (
             <Link href="/admin" style={{ fontSize: '0.8rem', color: 'var(--accent)', textDecoration: 'none', letterSpacing: '0.03em' }}>
               管理后台
