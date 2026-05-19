@@ -58,7 +58,7 @@ export default async function OrdersPage() {
                         {statusLabels[order.status] || order.status}
                       </span>
                       <p style={{ fontSize: '0.875rem', fontWeight: '600', marginTop: '0.25rem' }}>
-                        ¥{order.price}
+                        ¥{order.paid_amount || 0}
                       </p>
                     </div>
                   </div>
