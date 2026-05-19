@@ -33,6 +33,7 @@ interface Order {
   created_at: string;
   paid_at: string;
   delivered_at: string;
+  download_allowed: number;
 }
 
 interface FileItem {
@@ -82,14 +83,20 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
   const [message, setMessage] = useState('');
   const [paymentNotified, setPaymentNotified] = useState(false);
   const [previewFile, setPreviewFile] = useState<{ id: string; name: string } | null>(null);
+  const [donationAmount, setDonationAmount] = useState('');
 
   async function handlePaymentConfirm() {
+    const amount = parseFloat(donationAmount);
+    if (!amount || amount <= 0) {
+      setMessage('请输入打赏金额');
+      return;
+    }
     setConfirming(true);
     try {
       const res = await fetch('/api/payment/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id }),
+        body: JSON.stringify({ orderId: order.id, amount }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -124,11 +131,22 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
       {/* Payment Section */}
       {order.status === 'pending_payment' && !paymentNotified && (
         <div className="geo-block" style={{ marginBottom: '2rem' }}>
-          <span className="section-number" style={{ marginBottom: '0.5rem' }}>付款</span>
-          <h2 style={{ marginBottom: '0.5rem' }}>
-            <span className="currency" style={{ fontSize: '1rem', verticalAlign: 'super' }}>¥</span>
-            {order.price}
-          </h2>
+          <span className="section-number" style={{ marginBottom: '0.5rem' }}>打赏支持</span>
+          <p style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>
+            本平台采用打赏制，请自由输入你想支持的金额
+          </p>
+          {order.is_urgent ? (
+            <p style={{ fontSize: '0.75rem', color: 'var(--accent)', marginBottom: '0.75rem' }}>
+              加急订单，建议适当增加打赏金额
+            </p>
+          ) : null}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+            <span style={{ fontSize: '1.5rem', fontWeight: '600' }}>¥</span>
+            <input type="number" className="input" value={donationAmount}
+              onChange={e => setDonationAmount(e.target.value)}
+              style={{ width: '180px', padding: '0.6rem 0.75rem', fontSize: '1.1rem' }}
+              placeholder="输入金额" min="0" step="0.01" />
+          </div>
           <p style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>
             请扫描以下二维码付款，付款后点击确认
           </p>
@@ -149,9 +167,6 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
               }}
             />
           </div>
-          <p style={{ fontSize: '0.75rem', color: 'var(--accent)', marginBottom: '0.75rem' }}>
-            应付金额：<strong>¥{order.price}</strong> · 请支付正确金额，管理员会核实确认
-          </p>
           <button className="btn btn-primary btn-sm" onClick={handlePaymentConfirm} disabled={confirming}>
             {confirming ? '确认中...' : '我已付款'}
           </button>
@@ -190,19 +205,14 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
             <p>{order.created_at}</p>
           </div>
           <div>
-            <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.25rem' }}>价格</p>
-            <p style={{ fontWeight: '600' }}>¥{order.price}</p>
+            <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.25rem' }}>打赏金额</p>
+            <p style={{ fontWeight: '600' }}>¥{order.paid_amount || 0}</p>
           </div>
           <div>
             <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.25rem' }}>加急</p>
             <p>{order.is_urgent ? '是' : '否'}</p>
           </div>
         </div>
-        {order.paid_amount > 0 && (
-          <div style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: 'var(--gray-500)' }}>
-            已付金额：¥{order.paid_amount}
-          </div>
-        )}
       </div>
 
       {/* Description */}
@@ -264,9 +274,15 @@ export default function OrderDetailClient({ order, files, deliveries, payments, 
               <span style={{ fontSize: '0.65rem', color: 'var(--gray-400)' }}>
                 {d.uploaded_at}
               </span>
-              <Link href={`/api/download/${d.id}`} className="btn btn-accent btn-sm" style={{ fontSize: '0.7rem', padding: '0.25rem 0.75rem' }}>
-                下载
-              </Link>
+              {order.download_allowed ? (
+                <Link href={`/api/download/${d.id}`} className="btn btn-accent btn-sm" style={{ fontSize: '0.7rem', padding: '0.25rem 0.75rem' }}>
+                  下载
+                </Link>
+              ) : (
+                <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)', fontStyle: 'italic' }}>
+                  等待管理员授权
+                </span>
+              )}
               <button onClick={() => setPreviewFile({ id: d.id, name: d.original_name })}
                 className="btn btn-outline btn-sm" style={{ fontSize: '0.7rem', padding: '0.25rem 0.75rem', fontFamily: 'inherit' }}>
                 预览
