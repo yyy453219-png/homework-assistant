@@ -61,6 +61,7 @@ function initTables() {
       created_at TEXT DEFAULT (datetime('now','localtime')),
       paid_at TEXT DEFAULT '',
       delivered_at TEXT DEFAULT '',
+      download_allowed INTEGER DEFAULT 0,
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
 
@@ -121,8 +122,6 @@ function initTables() {
     db.prepare("UPDATE users SET nickname = 'admin' WHERE is_admin = 1").run();
   }
 
-  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('default_price', '15')").run();
-  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('urgent_price', '25')").run();
   db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('max_daily_orders', '3')").run();
 
   // Performance indexes
@@ -132,4 +131,11 @@ function initTables() {
     CREATE INDEX IF NOT EXISTS idx_files_order_id ON files(order_id);
     CREATE INDEX IF NOT EXISTS idx_payment_records_order_id ON payment_records(order_id);
   `);
+
+  // Add download_allowed column for existing databases
+  try {
+    db.exec("ALTER TABLE orders ADD COLUMN download_allowed INTEGER DEFAULT 0");
+  } catch {
+    // Column already exists — ignore
+  }
 }
