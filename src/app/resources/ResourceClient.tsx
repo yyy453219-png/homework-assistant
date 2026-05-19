@@ -56,6 +56,32 @@ export default function ResourceClient({ categories, user, permissionMap }: Prop
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [categoryFiles, setCategoryFiles] = useState<Record<string, FileInfo[]>>({});
   const [loadingFiles, setLoadingFiles] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  async function handleDownload(fileId: string, fileName: string) {
+    if (downloadingId === fileId) return;
+    setDownloadingId(fileId);
+    try {
+      const res = await fetch(`/api/resources/download/${fileId}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || '下载失败');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('下载失败，请重试');
+    }
+    setDownloadingId(null);
+  }
 
   async function toggleCategory(categoryId: string) {
     if (expandedCategory === categoryId) {
@@ -153,11 +179,16 @@ export default function ResourceClient({ categories, user, permissionMap }: Prop
                             {formatSize(f.file_size)}
                           </span>
                           {hasPermission(cat.id) ? (
-                            <Link href={`/api/resources/download/${f.id}`}
+                            <button onClick={() => handleDownload(f.id, f.original_name)}
+                              disabled={downloadingId === f.id}
                               className="btn btn-accent btn-sm"
-                              style={{ fontSize: '0.7rem', padding: '0.25rem 0.75rem', textDecoration: 'none' }}>
-                              下载
-                            </Link>
+                              style={{
+                                fontSize: '0.7rem', padding: '0.25rem 0.75rem',
+                                textDecoration: 'none', border: 'none', cursor: downloadingId === f.id ? 'not-allowed' : 'pointer',
+                                opacity: downloadingId === f.id ? 0.6 : 1, fontFamily: 'inherit',
+                              }}>
+                              {downloadingId === f.id ? '下载中...' : '下载'}
+                            </button>
                           ) : user ? (
                             <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)', fontStyle: 'italic' }}>
                               暂无权限

@@ -169,6 +169,9 @@ export default function FileUploadZone({ onFilesSelected, accept, multiple = tru
         <div style={{ fontSize: '0.7rem', color: 'var(--gray-400)' }}>
           {packing ? '请稍候，文件夹压缩中' : `支持多个文件${allowFolder ? '和文件夹' : ''} · 每个最大 ${maxSize / 1024 / 1024}MB`}
         </div>
+        <div style={{ fontSize: '0.65rem', color: 'var(--gray-400)', marginTop: '0.35rem' }}>
+          仅支持从本地文件管理器拖拽，不支持从 WPS 等应用内拖出
+        </div>
       </div>
 
       <input
