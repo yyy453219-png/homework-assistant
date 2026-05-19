@@ -179,7 +179,7 @@ export default function ResourceClient({ categories, user, permissionMap }: Prop
                             {formatSize(f.file_size)}
                           </span>
                           {hasPermission(cat.id) ? (
-                            <button onClick={() => handleDownload(f.id, f.original_name)}
+                            <button onClick={(e) => { e.stopPropagation(); handleDownload(f.id, f.original_name); }}
                               disabled={downloadingId === f.id}
                               className="btn btn-accent btn-sm"
                               style={{

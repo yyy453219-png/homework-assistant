@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { getDb, getUploadDir } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import fs from 'fs';
 import path from 'path';
@@ -21,7 +21,7 @@ export async function DELETE(
   }
 
   // Delete physical file
-  const filePath = path.join(process.cwd(), 'uploads', file.filename);
+  const filePath = path.join(getUploadDir(), file.filename);
   try {
     fs.unlinkSync(filePath);
   } catch { /* file may not exist */ }

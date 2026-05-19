@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { getDb, getUploadDir } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-
-const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
@@ -41,8 +39,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!fs.existsSync(UPLOAD_DIR)) {
-      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    if (!fs.existsSync(getUploadDir())) {
+      fs.mkdirSync(getUploadDir(), { recursive: true });
     }
 
     const db = getDb();
@@ -60,7 +58,7 @@ export async function POST(request: NextRequest) {
     for (const file of files) {
       const ext = path.extname(file.name) || '.bin';
       const filename = `${crypto.randomUUID()}${ext}`;
-      const filePath = path.join(UPLOAD_DIR, filename);
+      const filePath = path.join(getUploadDir(), filename);
 
       const buffer = Buffer.from(await file.arrayBuffer());
       fs.writeFileSync(filePath, buffer);

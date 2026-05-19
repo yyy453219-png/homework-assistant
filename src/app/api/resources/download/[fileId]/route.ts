@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { getDb, getUploadDir } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import fs from 'fs';
 import path from 'path';
@@ -31,18 +31,18 @@ export async function GET(
     }
   }
 
-  const filePath = path.join(process.cwd(), 'uploads', file.filename);
+  const filePath = path.join(getUploadDir(), file.filename);
   if (!fs.existsSync(filePath)) {
     return NextResponse.json({ error: '文件不存在' }, { status: 404 });
   }
 
   const buffer = fs.readFileSync(filePath);
-  const encodedName = encodeURIComponent(file.original_name);
 
   return new NextResponse(buffer, {
     headers: {
       'Content-Type': 'application/octet-stream',
-      'Content-Disposition': `attachment; filename*=UTF-8''${encodedName}`,
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(file.original_name)}"`,
+      'Content-Length': String(buffer.length),
     },
   });
 }

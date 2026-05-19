@@ -8,6 +8,13 @@ const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH
   : path.join(process.cwd(), 'data');
 const dbPath = path.join(dataDir, 'app.db');
 
+// Upload directory — use persistent volume on Railway
+export function getUploadDir() {
+  return process.env.RAILWAY_VOLUME_MOUNT_PATH
+    ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'uploads')
+    : path.join(process.cwd(), 'uploads');
+}
+
 let db: Database.Database;
 
 export function getDb() {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { getDb, getUploadDir } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import fs from 'fs';
 import path from 'path';
@@ -74,10 +74,9 @@ export async function DELETE(
 
   // Delete physical files from disk
   const files = db.prepare('SELECT filename FROM resource_files WHERE category_id = ?').all(id) as any[];
-  const uploadDir = path.join(process.cwd(), 'uploads');
   for (const f of files) {
     try {
-      fs.unlinkSync(path.join(uploadDir, f.filename));
+      fs.unlinkSync(path.join(getUploadDir(), f.filename));
     } catch { /* file may not exist */ }
   }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { getDb, getUploadDir } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import fs from 'fs';
 import path from 'path';
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
   }
 
-  const filePath = path.join(process.cwd(), 'uploads', file.filename);
+  const filePath = path.join(getUploadDir(), file.filename);
   if (!fs.existsSync(filePath)) {
     return NextResponse.json({ error: '文件已丢失' }, { status: 404 });
   }
