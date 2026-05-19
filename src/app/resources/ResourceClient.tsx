@@ -61,26 +61,13 @@ export default function ResourceClient({ categories, user, permissionMap }: Prop
   async function handleDownload(fileId: string, fileName: string) {
     if (downloadingId === fileId) return;
     setDownloadingId(fileId);
-    try {
-      const res = await fetch(`/api/resources/download/${fileId}`);
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error || '下载失败');
-        return;
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {
-      alert('下载失败，请重试');
-    }
-    setDownloadingId(null);
+
+    // Use direct browser download — streams from server to disk,
+    // avoids downloading entire file into JavaScript memory
+    window.location.href = `/api/resources/download/${fileId}`;
+
+    // Reset loading after a delay so user can click again if needed
+    setTimeout(() => setDownloadingId(null), 5000);
   }
 
   async function toggleCategory(categoryId: string) {
