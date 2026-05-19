@@ -36,6 +36,7 @@ interface Order {
   created_at: string;
   paid_at: string;
   delivered_at: string;
+  download_allowed: number;
 }
 
 interface User {
@@ -135,8 +136,7 @@ export default function AdminClient({ orders, users, user }: Props) {
                       <th>用户</th>
                       <th>课程</th>
                       <th>服务</th>
-                      <th>金额</th>
-                      <th>已付</th>
+                      <th>打赏</th>
                       <th>状态</th>
                       <th>时间</th>
                       <th></th>
@@ -148,10 +148,7 @@ export default function AdminClient({ orders, users, user }: Props) {
                         <td style={{ fontSize: '0.8rem' }}>{o.nickname}</td>
                         <td style={{ fontSize: '0.85rem' }}>{o.course_name}</td>
                         <td style={{ fontSize: '0.8rem', color: 'var(--gray-500)' }}>{o.service_type}</td>
-                        <td>¥{o.price}</td>
-                        <td style={{ fontSize: '0.8rem', color: o.paid_amount > 0 ? 'var(--accent)' : 'var(--gray-400)' }}>
-                          {o.paid_amount > 0 ? `¥${o.paid_amount}` : '-'}
-                        </td>
+                        <td>¥{o.paid_amount || 0}</td>
                         <td>
                           <span className={`badge ${o.status === 'delivered' || o.status === 'completed' ? 'badge-success' : o.status === 'pending_payment' ? 'badge-warning' : ''}`}
                             style={{ fontSize: '0.65rem' }}>
@@ -228,7 +225,7 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
   const [payAmount, setPayAmount] = useState('');
   const [previewFile, setPreviewFile] = useState<{ id: string; name: string } | null>(null);
 
-  const remaining = Math.max(0, order.price - (order.paid_amount || 0));
+  const [downloadAllowed, setDownloadAllowed] = useState(order.download_allowed ? true : false);
 
   // Load files on mount
   useState(() => {
@@ -267,6 +264,22 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
       onUpdate();
     } else {
       setMessage('❌ 保存失败');
+    }
+  }
+
+  async function handleToggleDownload() {
+    const newValue = !downloadAllowed;
+    const res = await fetch('/api/admin/orders', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: order.id, downloadAllowed: newValue }),
+    });
+    if (res.ok) {
+      setDownloadAllowed(newValue);
+      setMessage(newValue ? '✅ 已授权用户下载' : '✅ 已撤销下载权限');
+      onUpdate();
+    } else {
+      setMessage('❌ 更新失败');
     }
   }
 
@@ -320,8 +333,7 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
       {/* Order Info */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.85rem' }}>
-          <div><span style={{ color: 'var(--gray-400)' }}>价格:</span> ¥{order.price}</div>
-          <div><span style={{ color: 'var(--gray-400)' }}>已付金额:</span> ¥{order.paid_amount || 0}</div>
+          <div><span style={{ color: 'var(--gray-400)' }}>打赏金额:</span> ¥{order.paid_amount || 0}</div>
           <div><span style={{ color: 'var(--gray-400)' }}>提交时间:</span> {order.created_at}</div>
           <div><span style={{ color: 'var(--gray-400)' }}>加急:</span> {order.is_urgent ? '是' : '否'}</div>
           <div style={{ gridColumn: '1 / -1' }}>
@@ -372,48 +384,60 @@ function OrderDetailPanel({ order, onBack, onUpdate }: { order: Order; onBack: (
         </div>
       )}
 
-      {/* Payment Validation */}
-      {remaining > 0 && (
-        <div className="card" style={{ marginBottom: '1.5rem', borderColor: 'var(--accent)' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--accent)', marginBottom: '0.5rem', fontWeight: '600' }}>
-            收款管理
-          </p>
-          <div style={{ fontSize: '0.85rem', marginBottom: '0.75rem' }}>
-            <div>总价：<strong>¥{order.price}</strong></div>
-            <div>已收：<strong>¥{order.paid_amount || 0}</strong></div>
-            <div>待收：<strong style={{ color: 'var(--accent)' }}>¥{remaining}</strong></div>
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.8rem' }}>本次收款：</span>
-            <input type="number" className="input" value={payAmount}
-              onChange={e => setPayAmount(e.target.value)}
-              style={{ width: '120px', padding: '0.4rem 0.5rem', fontSize: '0.85rem' }}
-              placeholder="金额" min="0" max={remaining} />
-            <button className="btn btn-accent btn-sm" onClick={async () => {
-              const amount = parseFloat(payAmount);
-              if (!amount || amount <= 0) { setMessage('请输入有效金额'); return; }
-              if (amount > remaining) { setMessage(`最多收 ¥${remaining}`); return; }
-              const res = await fetch('/api/admin/orders', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId: order.id, paidAmount: amount }),
-              });
-              if (res.ok) {
-                setPayAmount('');
-                setMessage(`✅ 已收款 ¥${amount}`);
-                onUpdate();
-                // Reload page to reflect new paid_amount
-                setTimeout(() => window.location.reload(), 500);
-              } else {
-                setMessage('❌ 记录失败');
-              }
-            }}>确认收款</button>
-          </div>
-          <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)' }}>
-            {remaining <= 0 ? '✅ 已付清，用户可下载交付文档' : '收款完成后自动解锁下载'}
-          </p>
+      {/* Payment Recording */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.5rem', fontWeight: '600' }}>
+          收款记录
+        </p>
+        <div style={{ fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+          <div>已收金额：<strong>¥{order.paid_amount || 0}</strong></div>
         </div>
-      )}
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <span style={{ fontSize: '0.8rem' }}>本次收款：</span>
+          <input type="number" className="input" value={payAmount}
+            onChange={e => setPayAmount(e.target.value)}
+            style={{ width: '120px', padding: '0.4rem 0.5rem', fontSize: '0.85rem' }}
+            placeholder="金额" min="0" />
+          <button className="btn btn-accent btn-sm" onClick={async () => {
+            const amount = parseFloat(payAmount);
+            if (!amount || amount <= 0) { setMessage('请输入有效金额'); return; }
+            const res = await fetch('/api/admin/orders', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ orderId: order.id, paidAmount: amount }),
+            });
+            if (res.ok) {
+              setPayAmount('');
+              setMessage(`✅ 已收款 ¥${amount}`);
+              onUpdate();
+              setTimeout(() => window.location.reload(), 500);
+            } else {
+              setMessage('❌ 记录失败');
+            }
+          }}>确认收款</button>
+        </div>
+      </div>
+
+      {/* Download Authorization */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginBottom: '0.75rem' }}>下载授权</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span style={{ fontSize: '0.85rem' }}>
+            当前状态：
+            <strong style={{ color: downloadAllowed ? '#2a9d8f' : 'var(--accent)' }}>
+              {downloadAllowed ? '已授权' : '未授权'}
+            </strong>
+          </span>
+          <button className={`btn btn-sm ${downloadAllowed ? 'btn-outline' : 'btn-accent'}`}
+            onClick={handleToggleDownload}
+            style={{ fontFamily: 'inherit' }}>
+            {downloadAllowed ? '撤销授权' : '授权下载'}
+          </button>
+        </div>
+        <p style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginTop: '0.5rem' }}>
+          授权后用户可在订单详情页下载交付文件
+        </p>
+      </div>
 
       {/* Status Control */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
