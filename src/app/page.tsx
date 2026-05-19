@@ -67,12 +67,12 @@ export default async function HomePage() {
             ))}
           </div>
           <div className="geo-block" style={{ alignSelf: 'flex-start' }}>
-            <span className="section-number" style={{ marginBottom: '0.5rem' }}>价格</span>
-            <div className="price-large">
-              <span className="currency">¥</span>15
-            </div>
+            <span className="section-number" style={{ marginBottom: '0.5rem' }}>打赏制</span>
+            <p style={{ fontSize: '2.5rem', fontWeight: '700', letterSpacing: '-0.03em' }}>
+              随心打赏
+            </p>
             <p style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginTop: '0.5rem' }}>
-              加急服务 25 元
+              满意后再付款，金额由你定
             </p>
           </div>
         </div>
@@ -87,7 +87,7 @@ export default async function HomePage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
           {[
             { step: '01', title: '提交需求', desc: '填写课程名称、作业类型，上传作业要求文件' },
-            { step: '02', title: '确认付款', desc: '确认价格和服务内容，通过微信扫码付款' },
+            { step: '02', title: '确认付款', desc: '输入打赏金额，通过微信扫码付款' },
             { step: '03', title: '等待交付', desc: '平台制作完成后，订单状态更新为已交付' },
             { step: '04', title: '下载文档', desc: '在订单详情页下载完成文档，作业搞定' },
           ].map((s) => (
@@ -111,35 +111,32 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* PRICING */}
+      {/* DONATION MODEL */}
       <div className="thin-divider" style={{ maxWidth: '1200px', margin: '0 auto' }} />
       <section style={{ padding: '4rem 1.5rem', maxWidth: '1200px', margin: '0 auto' }}>
         <span className="section-number">[ 04 ]</span>
-        <h2 style={{ marginBottom: '2.5rem' }}>价格说明</h2>
+        <h2 style={{ marginBottom: '2.5rem' }}>关于打赏</h2>
         <div className="offset-grid" style={{ gap: '2rem' }}>
           <div>
             <div className="geo-block" style={{ marginBottom: '1rem' }}>
               <p style={{ fontSize: '0.75rem', color: 'var(--gray-400)', marginBottom: '0.5rem' }}>标准服务</p>
-              <div className="price-large">
-                <span className="currency">¥</span>15
-              </div>
-              <p style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginTop: '0.75rem' }}>
-                24-48小时交付
+              <p style={{ fontSize: '1rem', lineHeight: 1.6, color: 'var(--gray-600)' }}>
+                提交需求后 24-48 小时内交付。满意后自愿打赏，金额由你决定。
               </p>
             </div>
           </div>
           <div>
             <div className="geo-block" style={{ marginBottom: '1rem' }}>
               <p style={{ fontSize: '0.75rem', color: 'var(--gray-400)', marginBottom: '0.5rem' }}>加急服务</p>
-              <div className="price-large">
-                <span className="currency">¥</span>25
-              </div>
-              <p style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginTop: '0.75rem' }}>
-                6-12小时交付
+              <p style={{ fontSize: '1rem', lineHeight: 1.6, color: 'var(--gray-600)' }}>
+                6-12 小时优先处理。加急订单建议适当增加打赏金额。
               </p>
             </div>
           </div>
         </div>
+        <p style={{ fontSize: '0.8rem', color: 'var(--gray-400)', marginTop: '1.5rem', maxWidth: '600px' }}>
+          你的每一份打赏都是对我们最大的鼓励，也是对优质内容的认可。无论金额多少，我们都将尽力为你提供最好的帮助。
+        </p>
       </section>
 
       {/* DECLARATION */}
