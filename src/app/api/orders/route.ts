@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const db = getDb();
 
     const id = crypto.randomUUID();
-    const price = data.is_urgent ? 25 : 15;
+    const price = 0;
 
     db.prepare(`
       INSERT INTO orders (id, user_id, course_name, homework_type, service_type, description, current_status, expected_help, is_urgent, deadline, price)
