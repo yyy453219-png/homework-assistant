@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/auth';
 import Header from '@/components/Header';
+import DonationEntry from '@/components/DonationEntry';
 
 export default async function HomePage() {
   const user = await getCurrentUser();
@@ -69,15 +70,7 @@ export default async function HomePage() {
               </div>
             ))}
           </div>
-          <div className="geo-block" style={{ alignSelf: 'flex-start' }}>
-            <span className="section-number" style={{ marginBottom: '0.5rem' }}>打赏制</span>
-            <p style={{ fontSize: '2.5rem', fontWeight: '700', letterSpacing: '-0.03em' }}>
-              随心打赏
-            </p>
-            <p style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginTop: '0.5rem' }}>
-              满意后再付款，金额由你定
-            </p>
-          </div>
+          <DonationEntry />
         </div>
       </section>
 
