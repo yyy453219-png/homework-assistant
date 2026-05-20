@@ -184,4 +184,18 @@ function initTables() {
     CREATE INDEX IF NOT EXISTS idx_resource_files_category ON resource_files(category_id);
     CREATE INDEX IF NOT EXISTS idx_resource_categories_sort ON resource_categories(sort_order);
   `);
+
+  // Standalone donations table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS donations (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      nickname TEXT DEFAULT '',
+      amount REAL NOT NULL,
+      message TEXT DEFAULT '',
+      status TEXT DEFAULT 'pending',
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      confirmed_at TEXT DEFAULT ''
+    );
+  `);
 }
