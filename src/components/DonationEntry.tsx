@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 
-const QUICK_AMOUNTS = [5, 10, 15, 20, 30, 50];
-
 type Step = 'input' | 'pay' | 'done';
 
 export default function DonationEntry() {
@@ -11,10 +9,6 @@ export default function DonationEntry() {
   const [step, setStep] = useState<Step>('input');
   const [submitting, setSubmitting] = useState(false);
   const [donationId, setDonationId] = useState('');
-
-  function handleQuickAmount(value: number) {
-    setAmount(String(value));
-  }
 
   async function handleStartDonate() {
     const num = parseFloat(amount);
@@ -76,23 +70,6 @@ export default function DonationEntry() {
               onChange={e => setAmount(e.target.value)}
               style={{ width: '140px', padding: '0.5rem 0.75rem', fontSize: '1rem' }}
               placeholder="金额随意" min="0" step="0.01" />
-          </div>
-
-          {/* Quick amount chips */}
-          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-            {QUICK_AMOUNTS.map(v => (
-              <button key={v} onClick={() => handleQuickAmount(v)}
-                style={{
-                  padding: '0.2rem 0.6rem', fontSize: '0.75rem', cursor: 'pointer',
-                  border: amount === String(v) ? '1px solid var(--black)' : '1px solid var(--gray-200)',
-                  background: amount === String(v) ? 'var(--black)' : 'transparent',
-                  color: amount === String(v) ? 'white' : 'var(--gray-500)',
-                  fontFamily: 'var(--font-mono)',
-                  borderRadius: 0, transition: 'all 0.15s',
-                }}>
-                ¥{v}
-              </button>
-            ))}
           </div>
 
           {/* Subtle hint */}
